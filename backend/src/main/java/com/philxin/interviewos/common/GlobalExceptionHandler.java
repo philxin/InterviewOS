@@ -71,9 +71,13 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<Result<Void>> handleBadRequestException(Exception exception) {
         String message = "Invalid request";
-        if (exception instanceof MissingServletRequestParameterException missingParameterException) {
+        if (exception instanceof MissingServletRequestParameterException) {
+            MissingServletRequestParameterException missingParameterException =
+                (MissingServletRequestParameterException) exception;
             message = "Missing parameter: " + missingParameterException.getParameterName();
-        } else if (exception instanceof MethodArgumentTypeMismatchException typeMismatchException) {
+        } else if (exception instanceof MethodArgumentTypeMismatchException) {
+            MethodArgumentTypeMismatchException typeMismatchException =
+                (MethodArgumentTypeMismatchException) exception;
             message = "Invalid parameter type: " + typeMismatchException.getName();
         }
         return build(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), message);

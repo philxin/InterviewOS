@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: InterviewOS
+  profiles:
+    # 可选：dev-postgres / dev-mysql
+    active: ${SPRING_PROFILES_ACTIVE:dev-postgres}
+    group:
+      dev-postgres:
+        - common
+        - postgres
+        - redis
+      dev-mysql:
+        - common
+        - mysql
+        - redis

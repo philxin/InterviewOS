@@ -1,0 +1,61 @@
+# =============================
+# 项目通用启动配置
+# =============================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/api}
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${GRACEFUL_SHUTDOWN_TIMEOUT:20s}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${JPA_FORMAT_SQL:true}
+        jdbc:
+          time_zone: ${DB_TIME_ZONE:UTC}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+          temperature: ${OPENAI_CHAT_TEMPERATURE:0.7}
+
+# =============================
+# 双数据库并存配置（统一维护）
+# 运行时通过 profile 选择生效的数据源
+# =============================
+app:
+  datasource:
+    primary: ${APP_PRIMARY_DATASOURCE:postgresql}
+    pool:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+    mysql:
+      url: ${MYSQL_URL:jdbc:mysql://localhost:3306/interview_os?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC}
+      username: ${MYSQL_USERNAME:root}
+      password: ${MYSQL_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      dialect: org.hibernate.dialect.MySQLDialect
+    postgresql:
+      url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/interview_os}
+      username: ${POSTGRES_USERNAME:postgres}
+      password: ${POSTGRES_PASSWORD:postgres}
+      driver-class-name: org.postgresql.Driver
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    com.philxin.interviewos: ${APP_LOG_LEVEL:INFO}
+    org.springframework.ai: ${SPRING_AI_LOG_LEVEL:INFO}
+    org.springframework.web: ${SPRING_WEB_LOG_LEVEL:INFO}
