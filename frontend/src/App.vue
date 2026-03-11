@@ -2,27 +2,68 @@
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <nav class="bg-white shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <span class="text-xl font-bold text-gray-900">InterviewOS</span>
-          </div>
-          <div class="flex items-center space-x-4">
-            <router-link to="/" class="text-gray-700 hover:text-gray-900">首页</router-link>
-            <router-link to="/interview" class="text-gray-700 hover:text-gray-900">面试</router-link>
-            <router-link to="/training" class="text-gray-700 hover:text-gray-900">训练</router-link>
-            <router-link to="/dashboard" class="text-gray-700 hover:text-gray-900">看板</router-link>
-          </div>
+  <div class="app-shell">
+    <nav class="top-nav">
+      <div class="top-nav-inner">
+        <div class="brand">InterviewOS</div>
+        <div class="nav-links">
+          <router-link to="/">知识点</router-link>
+          <router-link to="/knowledge/new">新建</router-link>
+          <router-link to="/history">历史</router-link>
         </div>
       </div>
     </nav>
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="content">
       <router-view />
     </main>
   </div>
 </template>
 
 <style scoped>
+.app-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.top-nav {
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffffcc;
+  backdrop-filter: blur(8px);
+}
+
+.top-nav-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  height: 64px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-links a {
+  color: #334155;
+  font-weight: 600;
+}
+
+.nav-links a.router-link-active {
+  color: #1d4ed8;
+}
+
+.content {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
 </style>

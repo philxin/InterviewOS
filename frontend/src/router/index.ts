@@ -4,23 +4,33 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'Home',
-    component: () => import('../views/HomeView.vue')
+    name: 'Dashboard',
+    component: () => import('../views/DashboardView.vue')
   },
   {
-    path: '/interview',
-    name: 'Interview',
-    component: () => import('../views/InterviewView.vue')
+    path: '/knowledge/new',
+    name: 'KnowledgeNew',
+    component: () => import('../views/KnowledgeFormView.vue')
   },
   {
-    path: '/training',
+    path: '/knowledge/edit/:id',
+    name: 'KnowledgeEdit',
+    component: () => import('../views/KnowledgeFormView.vue')
+  },
+  {
+    path: '/training/:knowledgeId',
     name: 'Training',
     component: () => import('../views/TrainingView.vue')
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('../views/DashboardView.vue')
+    path: '/result',
+    name: 'Result',
+    component: () => import('../views/ResultView.vue')
+  },
+  {
+    path: '/history',
+    name: 'History',
+    component: () => import('../views/HistoryView.vue')
   }
 ]
 

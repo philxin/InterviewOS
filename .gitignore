@@ -37,8 +37,16 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/.DS_Store
+frontend/.env
+frontend/.env.*
+!frontend/.env.production.example
 frontend/.env.local
 frontend/.env.*.local
+
+# Backend env files
+backend/.env
+backend/.env.*
+!backend/.env.example
 
 # Docker
 docker/.env

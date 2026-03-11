@@ -1,44 +1,36 @@
 import apiClient from './client'
-import type { User, Interview, Training, Dashboard } from '../types'
+import type {
+  CreateKnowledgeRequest,
+  EvaluationResult,
+  Knowledge,
+  StartTrainingRequest,
+  StartTrainingResponse,
+  SubmitTrainingRequest,
+  TrainingRecord,
+  UpdateKnowledgeRequest,
+} from '../types'
 
-export const authAPI = {
-  login: (email: string, password: string) =>
-    apiClient.post('/auth/login', { email, password }),
-
-  register: (name: string, email: string, password: string) =>
-    apiClient.post('/auth/register', { name, email, password }),
-
-  logout: () => apiClient.post('/auth/logout'),
-
-  getCurrentUser: () => apiClient.get<User>('/auth/me'),
+/**
+ * 知识点相关 API（与后端 /knowledge 契约保持一致）。
+ */
+export const knowledgeAPI = {
+  getList: () => apiClient.get<Knowledge[]>('/knowledge'),
+  getById: (id: number) => apiClient.get<Knowledge>(`/knowledge/${id}`),
+  create: (data: CreateKnowledgeRequest) => apiClient.post<Knowledge>('/knowledge', data),
+  update: (id: number, data: UpdateKnowledgeRequest) =>
+    apiClient.put<Knowledge>(`/knowledge/${id}`, data),
+  delete: (id: number) => apiClient.delete<void>(`/knowledge/${id}`),
 }
 
-export const interviewAPI = {
-  getList: () => apiClient.get<Interview[]>('/interviews'),
-
-  getById: (id: string) => apiClient.get<Interview>(`/interviews/${id}`),
-
-  create: (data: Partial<Interview>) => apiClient.post<Interview>('/interviews', data),
-
-  update: (id: string, data: Partial<Interview>) =>
-    apiClient.put<Interview>(`/interviews/${id}`, data),
-
-  delete: (id: string) => apiClient.delete(`/interviews/${id}`),
-}
-
+/**
+ * 训练流程 API（start/submit/history）。
+ */
 export const trainingAPI = {
-  getList: () => apiClient.get<Training[]>('/trainings'),
-
-  getById: (id: string) => apiClient.get<Training>(`/trainings/${id}`),
-
-  create: (data: Partial<Training>) => apiClient.post<Training>('/trainings', data),
-
-  update: (id: string, data: Partial<Training>) =>
-    apiClient.put<Training>(`/trainings/${id}`, data),
-
-  delete: (id: string) => apiClient.delete(`/trainings/${id}`),
-}
-
-export const dashboardAPI = {
-  getData: () => apiClient.get<Dashboard>('/dashboard'),
+  start: (payload: StartTrainingRequest) =>
+    apiClient.post<StartTrainingResponse>('/training/start', payload),
+  submit: (payload: SubmitTrainingRequest) =>
+    apiClient.post<EvaluationResult>('/training/submit', payload),
+  getHistory: (knowledgeId: number) =>
+    apiClient.get<TrainingRecord[]>(`/training/history/${knowledgeId}`),
+  getAllHistory: () => apiClient.get<TrainingRecord[]>('/training/history'),
 }

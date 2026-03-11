@@ -37,6 +37,12 @@ interviewos/
 
 ## 快速开始
 
+### 配置建议（先看）
+
+- 使用 Spring Profile 区分环境：`dev-postgres` / `prod-postgres`
+- 敏感信息（数据库密码、Redis 密码、OpenAI Key）通过环境变量注入，禁止写入仓库
+- 可参考模板：`backend/.env.example`、`frontend/.env.production.example`
+
 ### 后端
 
 ```bash

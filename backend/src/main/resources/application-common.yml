@@ -44,13 +44,13 @@ app:
     mysql:
       url: ${MYSQL_URL:jdbc:mysql://localhost:3306/interview_os?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC}
       username: ${MYSQL_USERNAME:root}
-      password: ${MYSQL_PASSWORD:root}
+      password: ${MYSQL_PASSWORD:}
       driver-class-name: com.mysql.cj.jdbc.Driver
       dialect: org.hibernate.dialect.MySQLDialect
     postgresql:
       url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/interview_os}
       username: ${POSTGRES_USERNAME:postgres}
-      password: ${POSTGRES_PASSWORD:postgres}
+      password: ${POSTGRES_PASSWORD:}
       driver-class-name: org.postgresql.Driver
       dialect: org.hibernate.dialect.PostgreSQLDialect
 
