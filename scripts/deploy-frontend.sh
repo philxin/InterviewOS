@@ -4,7 +4,15 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
 NGINX_ROOT="/var/www/interviewos"
-SERVER_IP="${SERVER_IP:-localhost}"
+
+# 如果没有设置 SERVER_IP，则询问用户输入
+if [ -z "${SERVER_IP:-}" ]; then
+    read -p "请输入服务器 IP 地址: " SERVER_IP
+    if [ -z "$SERVER_IP" ]; then
+        echo "错误: 必须提供服务器 IP 地址"
+        exit 1
+    fi
+fi
 
 echo "=========================================="
 echo "前端部署脚本"
@@ -16,10 +24,10 @@ cd "$FRONTEND_DIR"
 # 配置生产环境 API 地址
 echo "配置 API 地址..."
 cat > .env.production <<EOF
-VITE_API_BASE_URL=http://$SERVER_IP:8080/api
+VITE_API_BASE_URL=http://$SERVER_IP/api
 EOF
 
-echo "API 地址: http://$SERVER_IP:8080/api"
+echo "API 地址: http://$SERVER_IP/api"
 
 # 安装依赖
 echo "安装依赖..."

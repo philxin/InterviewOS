@@ -21,22 +21,52 @@
 
 ## 快速部署
 
-### 1. 上传代码到服务器
+### 0. 系统准备（可选但推荐）
 
 ```bash
-# 方式 1: 使用 git clone
+# 更新系统包
+sudo apt update && sudo apt upgrade -y
+
+# 如果看到 "Daemons using outdated libraries" 警告
+# 重启相关服务或重启系统
+sudo reboot
+```
+
+### 1. 上传代码到服务器
+
+**推荐路径**：将代码放在用户主目录下，例如 `/home/your_username/InterviewOS`
+
+```bash
+# 方式 1: 使用 git clone（推荐）
+cd ~
 git clone <your-repo-url>
 cd InterviewOS
 
 # 方式 2: 使用 rsync 上传
+# 在本地执行：
 rsync -avz --exclude 'node_modules' --exclude 'target' \
-  ./ user@server_ip:/home/user/InterviewOS/
+  ./ user@server_ip:~/InterviewOS/
+
+# 然后在服务器上：
+cd ~/InterviewOS
 ```
+
+**注意**：
+- 代码可以放在任意目录，不影响部署（部署后的文件会复制到 `/opt/interviewos`）
+- 建议使用用户主目录（`~`），避免权限问题
+- 确保目录有足够的磁盘空间（至少 2GB）
 
 ### 2. 执行一键部署脚本
 
 ```bash
-cd InterviewOS
+# 确保在项目根目录
+cd ~/InterviewOS
+
+# 给脚本添加执行权限
+chmod +x deploy.sh
+chmod +x scripts/*.sh
+
+# 执行部署
 ./deploy.sh
 ```
 
@@ -170,7 +200,10 @@ sudo nginx -t
 代码更新后重新部署：
 
 ```bash
-cd InterviewOS
+# 进入项目目录
+cd ~/InterviewOS
+
+# 拉取最新代码
 git pull
 
 # 重新部署后端
@@ -226,7 +259,22 @@ tail -f /opt/interviewos/logs/backend.log
 sudo tail -f /var/log/nginx/error.log
 ```
 
-## 故障排查
+## 常见问题
+
+### "Daemons using outdated libraries" 警告
+
+这表示某些系统服务正在使用过期的库文件。
+
+**解决方法**：
+```bash
+# 方法 1: 重启相关服务
+sudo systemctl restart postgresql redis-server nginx
+
+# 方法 2: 重启系统（最彻底）
+sudo reboot
+```
+
+这不会影响部署，但建议在部署前处理。
 
 ### 后端无法启动
 

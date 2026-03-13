@@ -15,8 +15,21 @@ if ! sudo -n true 2>/dev/null; then
 fi
 
 # 询问服务器 IP
-read -p "请输入服务器 IP 地址 [默认: $(hostname -I | awk '{print $1}')]: " SERVER_IP
-SERVER_IP=${SERVER_IP:-$(hostname -I | awk '{print $1}')}
+echo "正在获取服务器 IP..."
+PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null)
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
+
+if [ -n "$PUBLIC_IP" ]; then
+    echo "检测到公网 IP: $PUBLIC_IP"
+    echo "检测到内网 IP: $PRIVATE_IP"
+    read -p "请输入服务器 IP 地址 [默认: $PUBLIC_IP]: " SERVER_IP
+    SERVER_IP=${SERVER_IP:-$PUBLIC_IP}
+else
+    echo "无法获取公网 IP，使用内网 IP: $PRIVATE_IP"
+    read -p "请输入服务器 IP 地址 [默认: $PRIVATE_IP]: " SERVER_IP
+    SERVER_IP=${SERVER_IP:-$PRIVATE_IP}
+fi
+
 export SERVER_IP
 
 echo ""

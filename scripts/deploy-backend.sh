@@ -20,6 +20,9 @@ fi
 # 进入后端目录
 cd "$BACKEND_DIR"
 
+# 确保 mvnw 有执行权限
+chmod +x mvnw
+
 # 构建项目（不需要加载环境变量）
 echo "构建后端项目..."
 ./mvnw clean package -DskipTests
