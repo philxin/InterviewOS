@@ -22,7 +22,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Result<Void>> handleBusinessException(BusinessException exception) {
-        log.warn("Business exception: code={}, message={}", exception.getCode(), exception.getMessage());
+        log.warn(
+            "Business exception: status={}, code={}, message={}",
+            exception.getStatus().value(),
+            exception.getCode(),
+            LogSanitizer.summarize(exception.getMessage())
+        );
         return build(exception.getStatus(), exception.getCode(), exception.getMessage());
     }
 
@@ -36,6 +41,7 @@ public class GlobalExceptionHandler {
             .findFirst()
             .map(this::buildFieldErrorMessage)
             .orElse("Validation failed");
+        log.warn("Validation failed: type={}, message={}", exception.getClass().getSimpleName(), message);
         return build(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), message);
     }
 
@@ -47,6 +53,7 @@ public class GlobalExceptionHandler {
             .findFirst()
             .map(this::buildFieldErrorMessage)
             .orElse("Validation failed");
+        log.warn("Validation failed: type={}, message={}", exception.getClass().getSimpleName(), message);
         return build(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), message);
     }
 
@@ -61,6 +68,7 @@ public class GlobalExceptionHandler {
         if (message.isBlank()) {
             message = "Validation failed";
         }
+        log.warn("Validation failed: type={}, message={}", exception.getClass().getSimpleName(), message);
         return build(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), message);
     }
 
@@ -80,12 +88,18 @@ public class GlobalExceptionHandler {
                 (MethodArgumentTypeMismatchException) exception;
             message = "Invalid parameter type: " + typeMismatchException.getName();
         }
+        log.warn("Bad request: type={}, message={}", exception.getClass().getSimpleName(), message);
         return build(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), message);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleException(Exception exception) {
-        log.error("Unhandled exception", exception);
+        log.error(
+            "Unhandled exception: type={}, message={}",
+            exception.getClass().getSimpleName(),
+            LogSanitizer.summarize(exception.getMessage()),
+            exception
+        );
         return build(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error");
     }
 

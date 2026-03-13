@@ -53,3 +53,4 @@ docker/.env
 docker/data/
 
 _bmad/
+.agents/

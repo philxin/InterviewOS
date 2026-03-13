@@ -1,14 +1,16 @@
 package com.philxin.interviewos.config;
 
-import java.util.Arrays;
-import java.util.List;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -17,20 +19,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * V1 阶段暂不启用鉴权，统一放行 API 请求。
  */
 @Configuration
+@EnableConfigurationProperties(AppCorsProperties.class)
 public class SecurityConfig {
-    private final List<String> allowedOrigins;
+    private static final String[] V1_PUBLIC_ENDPOINTS = {
+        "/knowledge/**",
+        "/training/**",
+        "/error"
+    };
 
-    public SecurityConfig(
-        @Value("${app.cors.allowed-origins:http://localhost:5174}") String allowedOrigins
-    ) {
-        this.allowedOrigins = Arrays.stream(allowedOrigins.split(","))
-            .map(String::trim)
-            .filter(origin -> !origin.isEmpty())
-            .toList();
+    private final AppCorsProperties corsProperties;
+
+    public SecurityConfig(AppCorsProperties corsProperties) {
+        this.corsProperties = corsProperties;
     }
 
     /**
-     * 关闭默认登录页、CSRF 与表单认证，避免接口被 Spring Security 默认 401 拦截。
+     * V1 不启用用户体系，但只放行已对前端暴露的接口，其他路径默认拒绝。
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,29 +43,37 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-            .logout(AbstractHttpConfigurer::disable);
+            .logout(AbstractHttpConfigurer::disable)
+            .requestCache(AbstractHttpConfigurer::disable)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(headers -> headers
+                .contentTypeOptions(Customizer.withDefaults())
+                .cacheControl(Customizer.withDefaults())
+                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER))
+                .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+            )
+            .authorizeHttpRequests(authorize -> authorize
+                // 预检请求必须先于业务匹配放行，否则浏览器会直接拦截。
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(V1_PUBLIC_ENDPOINTS).permitAll()
+                .anyRequest().denyAll()
+            );
 
         return http.build();
     }
 
     /**
-     * V1 仅放行前端开发域名与显式配置的来源，避免浏览器跨域拦截。
+     * 仅放行显式配置的来源、方法和请求头，避免把跨域策略退化成全量开放。
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(allowedOrigins);
-        configuration.setAllowedMethods(List.of(
-            HttpMethod.GET.name(),
-            HttpMethod.POST.name(),
-            HttpMethod.PUT.name(),
-            HttpMethod.DELETE.name(),
-            HttpMethod.OPTIONS.name()
-        ));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
+        configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        configuration.setAllowedMethods(corsProperties.getAllowedMethods());
+        configuration.setAllowedHeaders(corsProperties.getAllowedHeaders());
+        configuration.setExposedHeaders(corsProperties.getExposedHeaders());
+        configuration.setAllowCredentials(corsProperties.isAllowCredentials());
+        configuration.setMaxAge(corsProperties.getMaxAge());
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

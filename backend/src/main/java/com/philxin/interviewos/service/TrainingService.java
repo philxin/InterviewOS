@@ -3,6 +3,7 @@ package com.philxin.interviewos.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.philxin.interviewos.common.BusinessException;
+import com.philxin.interviewos.common.LogSanitizer;
 import com.philxin.interviewos.entity.Knowledge;
 import com.philxin.interviewos.entity.TrainingRecord;
 import com.philxin.interviewos.llm.EvaluationResult;
@@ -44,7 +45,20 @@ public class TrainingService {
     @Transactional(readOnly = true)
     public String startTraining(Long knowledgeId) {
         Knowledge knowledge = getKnowledgeOrThrow(knowledgeId);
-        return llmService.generateQuestion(knowledge.getTitle(), knowledge.getContent());
+        log.info(
+            "Start training: knowledgeId={}, titleFingerprint={}, contentLength={}",
+            knowledgeId,
+            LogSanitizer.fingerprint(knowledge.getTitle()),
+            LogSanitizer.length(knowledge.getContent())
+        );
+        String question = llmService.generateQuestion(knowledge.getTitle(), knowledge.getContent());
+        log.info(
+            "Training question generated: knowledgeId={}, questionLength={}, questionFingerprint={}",
+            knowledgeId,
+            LogSanitizer.length(question),
+            LogSanitizer.fingerprint(question)
+        );
+        return question;
     }
 
     /**
@@ -55,6 +69,14 @@ public class TrainingService {
         Knowledge knowledge = getKnowledgeOrThrow(knowledgeId);
         String normalizedQuestion = normalize(question);
         String normalizedAnswer = normalize(answer);
+        log.info(
+            "Submit training answer: knowledgeId={}, questionLength={}, questionFingerprint={}, answerLength={}, answerFingerprint={}",
+            knowledgeId,
+            LogSanitizer.length(normalizedQuestion),
+            LogSanitizer.fingerprint(normalizedQuestion),
+            LogSanitizer.length(normalizedAnswer),
+            LogSanitizer.fingerprint(normalizedAnswer)
+        );
 
         EvaluationResult evaluation = llmService.evaluateAnswer(normalizedQuestion, normalizedAnswer);
         int accuracy = normalizeScore(evaluation.getAccuracy());
@@ -86,6 +108,13 @@ public class TrainingService {
         record.setSuggestions(serializeSuggestions(suggestions));
         record.setExampleAnswer(normalize(evaluation.getExampleAnswer()));
         trainingRecordRepository.save(record);
+        log.info(
+            "Training evaluated: knowledgeId={}, overall={}, newMastery={}, suggestionsCount={}",
+            knowledgeId,
+            overall,
+            newMastery,
+            suggestions.size()
+        );
 
         return evaluation;
     }
@@ -96,7 +125,9 @@ public class TrainingService {
     @Transactional(readOnly = true)
     public List<TrainingRecord> getHistoryByKnowledgeId(Long knowledgeId) {
         getKnowledgeOrThrow(knowledgeId);
-        return trainingRecordRepository.findByKnowledgeIdOrderByCreatedAtDesc(knowledgeId);
+        List<TrainingRecord> records = trainingRecordRepository.findByKnowledgeIdOrderByCreatedAtDesc(knowledgeId);
+        log.info("Query training history by knowledge: knowledgeId={}, recordCount={}", knowledgeId, records.size());
+        return records;
     }
 
     /**
@@ -104,7 +135,9 @@ public class TrainingService {
      */
     @Transactional(readOnly = true)
     public List<TrainingRecord> getAllHistory() {
-        return trainingRecordRepository.findAllByOrderByCreatedAtDesc();
+        List<TrainingRecord> records = trainingRecordRepository.findAllByOrderByCreatedAtDesc();
+        log.info("Query all training history: recordCount={}", records.size());
+        return records;
     }
 
     private Knowledge getKnowledgeOrThrow(Long knowledgeId) {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.philxin.interviewos.common.BusinessException;
+import com.philxin.interviewos.common.LogSanitizer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -50,16 +51,31 @@ public class LLMServiceImpl implements LLMService {
 
     private String callModel(String prompt, String operation) {
         long start = System.currentTimeMillis();
+        String promptFingerprint = LogSanitizer.fingerprint(prompt);
+        int promptLength = LogSanitizer.length(prompt);
         try {
             String content = chatClient.prompt(prompt).call().content();
             long elapsed = System.currentTimeMillis() - start;
-            log.info("LLM {} completed in {} ms", operation, elapsed);
-            log.debug("LLM {} prompt: {}", operation, prompt);
-            log.debug("LLM {} raw response: {}", operation, content);
+            log.info(
+                "LLM {} completed in {} ms, promptLength={}, promptFingerprint={}, responseLength={}, responseFingerprint={}",
+                operation,
+                elapsed,
+                promptLength,
+                promptFingerprint,
+                LogSanitizer.length(content),
+                LogSanitizer.fingerprint(content)
+            );
             return content == null ? "" : content;
         } catch (Exception exception) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("LLM {} failed in {} ms", operation, elapsed, exception);
+            log.error(
+                "LLM {} failed in {} ms, promptLength={}, promptFingerprint={}",
+                operation,
+                elapsed,
+                promptLength,
+                promptFingerprint,
+                exception
+            );
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM service invocation failed");
         }
     }
@@ -82,7 +98,12 @@ public class LLMServiceImpl implements LLMService {
             result.setExampleAnswer(readExampleAnswer(root));
             return result;
         } catch (JsonProcessingException exception) {
-            log.error("Failed to parse LLM evaluation response: {}", rawResponse, exception);
+            log.error(
+                "Failed to parse LLM evaluation response: responseLength={}, responseFingerprint={}",
+                LogSanitizer.length(rawResponse),
+                LogSanitizer.fingerprint(rawResponse),
+                exception
+            );
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM returned invalid evaluation format");
         }
     }
