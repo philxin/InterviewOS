@@ -3,6 +3,7 @@ package com.philxin.interviewos.service;
 import com.philxin.interviewos.common.BusinessException;
 import com.philxin.interviewos.entity.Knowledge;
 import com.philxin.interviewos.repository.KnowledgeRepository;
+import com.philxin.interviewos.repository.TrainingRecordRepository;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -11,9 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class KnowledgeService {
     private final KnowledgeRepository knowledgeRepository;
+    private final TrainingRecordRepository trainingRecordRepository;
 
-    public KnowledgeService(KnowledgeRepository knowledgeRepository) {
+    public KnowledgeService(
+        KnowledgeRepository knowledgeRepository,
+        TrainingRecordRepository trainingRecordRepository
+    ) {
         this.knowledgeRepository = knowledgeRepository;
+        this.trainingRecordRepository = trainingRecordRepository;
     }
 
     /**
@@ -57,10 +63,12 @@ public class KnowledgeService {
 
     /**
      * 删除知识点，不存在返回 404。
+     * 先删除训练记录，避免 training_record 外键约束阻止删除。
      */
     @Transactional
     public void deleteKnowledge(Long id) {
         Knowledge knowledge = getKnowledgeById(id);
+        trainingRecordRepository.deleteByKnowledgeId(id);
         knowledgeRepository.delete(knowledge);
     }
 

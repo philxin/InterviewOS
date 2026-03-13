@@ -17,4 +17,9 @@ public interface TrainingRecordRepository extends JpaRepository<TrainingRecord, 
      * 查询全部训练历史（按时间倒序）。
      */
     List<TrainingRecord> findAllByOrderByCreatedAtDesc();
+
+    /**
+     * 按知识点删除训练记录，确保知识点删除时不会触发外键约束错误。
+     */
+    void deleteByKnowledgeId(Long knowledgeId);
 }

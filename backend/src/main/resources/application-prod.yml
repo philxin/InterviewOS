@@ -1,0 +1,38 @@
+# =============================
+# 生产环境安全配置（通过 profile=prod-* 叠加）
+# 说明：
+# 1) 敏感项不允许在文件中明文，必须由环境变量注入；
+# 2) 与 common 同路径配置会覆盖默认值，从而强制校验缺失项。
+# =============================
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: ${JPA_SHOW_SQL:false}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD:}
+
+app:
+  datasource:
+    mysql:
+      url: ${MYSQL_URL}
+      username: ${MYSQL_USERNAME}
+      password: ${MYSQL_PASSWORD}
+    postgresql:
+      url: ${POSTGRES_URL}
+      username: ${POSTGRES_USERNAME}
+      password: ${POSTGRES_PASSWORD}
+
+logging:
+  level:
+    com.philxin.interviewos: ${APP_LOG_LEVEL:INFO}
+    org.springframework.ai: ${SPRING_AI_LOG_LEVEL:INFO}
+    org.springframework.web: ${SPRING_WEB_LOG_LEVEL:INFO}

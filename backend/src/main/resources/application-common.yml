@@ -34,6 +34,8 @@ spring:
 # 运行时通过 profile 选择生效的数据源
 # =============================
 app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5174}
   datasource:
     primary: ${APP_PRIMARY_DATASOURCE:postgresql}
     pool:
