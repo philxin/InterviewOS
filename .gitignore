@@ -51,3 +51,5 @@ backend/.env.*
 # Docker
 docker/.env
 docker/data/
+
+_bmad/
