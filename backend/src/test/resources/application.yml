@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: InterviewOS-test
+  ai:
+    openai:
+      api-key: test-key
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  security:
+    jwt:
+      secret: 01234567890123456789012345678901
+      expires-in: PT2H
+      issuer: InterviewOS-test
+  datasource:
+    primary: postgresql
+    mysql:
+      url: jdbc:h2:mem:mysqltest;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+      dialect: org.hibernate.dialect.H2Dialect
+    postgresql:
+      url: jdbc:h2:mem:postgresqltest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+      dialect: org.hibernate.dialect.H2Dialect

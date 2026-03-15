@@ -1,43 +1,61 @@
 package com.philxin.interviewos.config;
 
+import com.philxin.interviewos.repository.AppUserRepository;
+import com.philxin.interviewos.security.JwtAuthenticationFilter;
+import com.philxin.interviewos.security.JwtTokenService;
+import com.philxin.interviewos.security.RestAccessDeniedHandler;
+import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * V1 阶段暂不启用鉴权，统一放行 API 请求。
+ * V2 安全配置：仅放行认证接口，其余接口默认要求 JWT。
  */
 @Configuration
-@EnableConfigurationProperties(AppCorsProperties.class)
+@EnableConfigurationProperties({AppCorsProperties.class, JwtProperties.class})
 public class SecurityConfig {
-    private static final String[] V1_PUBLIC_ENDPOINTS = {
-        "/knowledge/**",
-        "/training/**",
+    private static final String[] PUBLIC_ENDPOINTS = {
+        "/auth/**",
         "/error"
     };
 
     private final AppCorsProperties corsProperties;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
 
-    public SecurityConfig(AppCorsProperties corsProperties) {
+    public SecurityConfig(
+        AppCorsProperties corsProperties,
+        RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+        RestAccessDeniedHandler restAccessDeniedHandler
+    ) {
         this.corsProperties = corsProperties;
+        this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+        this.restAccessDeniedHandler = restAccessDeniedHandler;
     }
 
     /**
-     * V1 不启用用户体系，但只放行已对前端暴露的接口，其他路径默认拒绝。
+     * 未登录访问受保护接口返回 401；已登录但无权限时返回 403。
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+        HttpSecurity http,
+        JwtAuthenticationFilter jwtAuthenticationFilter
+    ) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
@@ -46,20 +64,37 @@ public class SecurityConfig {
             .logout(AbstractHttpConfigurer::disable)
             .requestCache(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptionHandling -> exceptionHandling
+                .authenticationEntryPoint(restAuthenticationEntryPoint)
+                .accessDeniedHandler(restAccessDeniedHandler)
+            )
             .headers(headers -> headers
                 .contentTypeOptions(Customizer.withDefaults())
                 .cacheControl(Customizer.withDefaults())
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER))
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
             )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(authorize -> authorize
-                // 预检请求必须先于业务匹配放行，否则浏览器会直接拦截。
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(V1_PUBLIC_ENDPOINTS).permitAll()
-                .anyRequest().denyAll()
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                .anyRequest().authenticated()
             );
 
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(
+        JwtTokenService jwtTokenService,
+        AppUserRepository appUserRepository
+    ) {
+        return new JwtAuthenticationFilter(jwtTokenService, appUserRepository);
     }
 
     /**

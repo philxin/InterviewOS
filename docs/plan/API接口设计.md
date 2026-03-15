@@ -46,6 +46,12 @@ V2 接口设计围绕以下目标展开：
 - **字符编码**: UTF-8
 - **认证方式**: `Authorization: Bearer <token>`
 
+### Token 返回约定
+
+- `tokenType`: 固定返回 `Bearer`
+- `expiresIn`: 返回秒级过期时间
+- V2 不实现 refresh token，过期后重新登录
+
 ### 公开接口
 
 - `POST /api/auth/register`
@@ -107,6 +113,16 @@ V2 接口设计围绕以下目标展开：
 | `MEDIUM` | 常规面试强度 |
 | `HARD` | 深挖与追问强度 |
 
+### TargetRole
+
+| 值 | 说明 |
+|----|------|
+| `JAVA_BACKEND` | Java 后端 |
+| `FRONTEND` | 前端开发 |
+| `FULLSTACK` | 全栈开发 |
+| `DEVOPS` | 运维 / 平台 |
+| `DATA_ENGINEER` | 数据工程 |
+
 ### KnowledgeSourceType
 
 | 值 | 说明 |
@@ -125,6 +141,18 @@ V2 接口设计围绕以下目标展开：
 | `BASIC` | 基础尚可 | 方向正确，但深度不足 |
 | `GOOD` | 回答较完整 | 结构较清晰，关键点基本覆盖 |
 | `STRONG` | 回答扎实 | 内容完整、表达自然、深度较好 |
+
+### FeedbackBand 判定规则
+
+`band` 不由 LLM 自由输出，而是由服务端根据最终 `score` 做确定性映射：
+
+| score 区间 | band |
+|-----------|------|
+| `0-29` | `UNCLEAR` |
+| `30-49` | `INCOMPLETE` |
+| `50-69` | `BASIC` |
+| `70-84` | `GOOD` |
+| `85-100` | `STRONG` |
 
 ---
 
@@ -149,7 +177,7 @@ POST /api/auth/register
 **参数校验**
 
 - `email`: 必填，合法邮箱，唯一
-- `password`: 必填，满足密码强度要求
+- `password`: 必填，长度 `8-64`，至少包含 `大写字母 / 小写字母 / 数字 / 特殊字符` 各一类
 - `displayName`: 必填，长度 1-50
 
 **响应示例（HTTP 201）**
@@ -160,6 +188,8 @@ POST /api/auth/register
   "message": "success",
   "data": {
     "token": "jwt-token",
+    "tokenType": "Bearer",
+    "expiresIn": 7200,
     "user": {
       "id": 1,
       "email": "user@example.com",
@@ -193,6 +223,8 @@ POST /api/auth/login
   "message": "success",
   "data": {
     "token": "jwt-token",
+    "tokenType": "Bearer",
+    "expiresIn": 7200,
     "user": {
       "id": 1,
       "email": "user@example.com",
@@ -246,6 +278,7 @@ PATCH /api/users/me/onboarding
 
 - 仅保存训练方向，不做复杂岗位画像
 - 不在 V2 实现深度简历解析
+- `targetRole` 仅允许使用 `TargetRole` 枚举值
 
 **响应示例（HTTP 200）**
 
@@ -274,8 +307,10 @@ PATCH /api/users/me/onboarding
   "mastery": 42,
   "tags": ["spring", "backend", "autoconfiguration"],
   "sourceType": "MANUAL",
+  "status": "ACTIVE",
   "createdAt": "2026-03-15T10:30:00",
-  "updatedAt": "2026-03-15T10:30:00"
+  "updatedAt": "2026-03-15T10:30:00",
+  "archivedAt": null
 }
 ```
 
@@ -287,8 +322,11 @@ GET /api/knowledge
 
 **查询参数**
 
+- `page`: 可选，默认 `1`
+- `size`: 可选，默认 `20`，最大 `100`
 - `keyword`: 可选，按标题/内容模糊匹配
 - `tag`: 可选，按单个标签过滤
+- `includeArchived`: 可选，默认 `false`
 
 **响应示例（HTTP 200）**
 
@@ -296,18 +334,26 @@ GET /api/knowledge
 {
   "code": 0,
   "message": "success",
-  "data": [
-    {
-      "id": 1,
-      "title": "Spring Boot 自动配置",
-      "content": "Spring Boot 的自动配置原理...",
-      "mastery": 42,
-      "tags": ["spring", "backend"],
-      "sourceType": "BATCH_IMPORT",
-      "createdAt": "2026-03-15T10:30:00",
-      "updatedAt": "2026-03-15T10:30:00"
-    }
-  ]
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "title": "Spring Boot 自动配置",
+        "content": "Spring Boot 的自动配置原理...",
+        "mastery": 42,
+        "tags": ["spring", "backend"],
+        "sourceType": "BATCH_IMPORT",
+        "status": "ACTIVE",
+        "createdAt": "2026-03-15T10:30:00",
+        "updatedAt": "2026-03-15T10:30:00",
+        "archivedAt": null
+      }
+    ],
+    "page": 1,
+    "size": 20,
+    "total": 1,
+    "hasNext": false
+  }
 }
 ```
 
@@ -333,6 +379,11 @@ POST /api/knowledge
 }
 ```
 
+**标签规范**
+
+- 服务端对 `tags` 执行 `trim + lowercase + de-duplicate`
+- 接口返回的标签永远是规范化后的结果
+
 **响应示例（HTTP 201）**
 
 ```json
@@ -346,8 +397,10 @@ POST /api/knowledge
     "mastery": 0,
     "tags": ["spring", "backend"],
     "sourceType": "MANUAL",
+    "status": "ACTIVE",
     "createdAt": "2026-03-15T10:30:00",
-    "updatedAt": "2026-03-15T10:30:00"
+    "updatedAt": "2026-03-15T10:30:00",
+    "archivedAt": null
   }
 }
 ```
@@ -385,10 +438,29 @@ POST /api/knowledge/batch-import
   "message": "success",
   "data": {
     "createdCount": 2,
+    "failedCount": 0,
     "failedItems": []
   }
 }
 ```
+
+**`failedItems` 结构**
+
+```json
+[
+  {
+    "index": 1,
+    "title": "Redis 持久化",
+    "reason": "content 不能为空"
+  }
+]
+```
+
+**返回语义**
+
+- 全部成功：`201`
+- 部分成功：`201`
+- 全部失败：`422`
 
 ### 5. 文件导入知识点（P1）
 
@@ -401,6 +473,12 @@ Content-Type: multipart/form-data
 
 - `file`: 必填，支持少量高价值格式
 - `defaultTags`: 可选，逗号分隔
+
+**文件约束**
+
+- 支持格式：`txt`、`md`、`pdf`
+- 单文件最大大小：`5MB`
+- 解析超时：`60s`
 
 **响应示例（HTTP 202）**
 
@@ -420,6 +498,13 @@ Content-Type: multipart/form-data
 ```http
 GET /api/knowledge/file-imports/{importId}
 ```
+
+**导入状态语义**
+
+- `PENDING`
+- `PROCESSING`
+- `SUCCESS`
+- `FAILED`
 
 ### 7. 更新知识点
 
@@ -445,8 +530,9 @@ DELETE /api/knowledge/{id}
 
 **说明**
 
-- 删除知识点时，仍需清理其关联训练记录
-- 只允许删除当前用户拥有的知识点
+- V2 中 `DELETE /knowledge/{id}` 语义为**归档知识点**，不做物理删除
+- 归档后知识点默认不出现在列表页，但历史训练记录仍保留
+- 只允许归档当前用户拥有的知识点
 
 ### 9. 获取当前用户标签列表
 
@@ -464,6 +550,8 @@ GET /api/knowledge/tags
 }
 ```
 
+标签列表接口返回的值均为规范化后的标签。
+
 ---
 
 ## 🎯 训练 API
@@ -475,6 +563,7 @@ GET /api/knowledge/tags
   "sessionId": "ts_001",
   "questionId": "q_001",
   "knowledgeId": 1,
+  "knowledgeTitle": "Spring Boot 自动配置",
   "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
   "questionType": "PROJECT",
   "difficulty": "MEDIUM",
@@ -520,6 +609,7 @@ POST /api/training/sessions
     "sessionId": "ts_001",
     "questionId": "q_001",
     "knowledgeId": 1,
+    "knowledgeTitle": "Spring Boot 自动配置",
     "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
     "questionType": "PROJECT",
     "difficulty": "MEDIUM",
@@ -603,6 +693,8 @@ GET /api/training/sessions
 
 **查询参数**
 
+- `page`: 可选，默认 `1`
+- `size`: 可选，默认 `20`，最大 `100`
 - `knowledgeId`: 可选，仅查询某个知识点的训练历史
 
 **响应示例（HTTP 200）**
@@ -611,23 +703,41 @@ GET /api/training/sessions
 {
   "code": 0,
   "message": "success",
-  "data": [
-    {
-      "sessionId": "ts_001",
-      "knowledgeId": 1,
-      "questionType": "PROJECT",
-      "difficulty": "MEDIUM",
-      "score": 58,
-      "band": {
-        "code": "INCOMPLETE",
-        "label": "回答不完整"
-      },
-      "majorIssue": "关键点缺失，表达尚可。",
-      "createdAt": "2026-03-15T11:00:00"
-    }
-  ]
+  "data": {
+    "items": [
+      {
+        "sessionId": "ts_001",
+        "knowledgeId": 1,
+        "knowledgeTitle": "Spring Boot 自动配置",
+        "questionCount": 1,
+        "answeredCount": 1,
+        "sessionScore": 58,
+        "band": {
+          "code": "INCOMPLETE",
+          "label": "回答不完整"
+        },
+        "majorIssueSummary": "关键点缺失，表达尚可。",
+        "startedAt": "2026-03-15T11:00:00",
+        "completedAt": "2026-03-15T11:03:00"
+      }
+    ],
+    "page": 1,
+    "size": 20,
+    "total": 1,
+    "hasNext": false
+  }
 }
 ```
+
+**聚合规则**
+
+- `questionCount`：该 session 的总题数
+- `answeredCount`：已提交回答的题数
+- `sessionScore`：所有已回答题目的 `score` 平均值，四舍五入取整
+- `band`：服务端基于 `sessionScore` 按 `FeedbackBand` 规则映射
+- `majorIssueSummary`：
+  - P0 单题模式下，等于该题 `majorIssue`
+  - 多题模式下，由服务端汇总为 session 级摘要
 
 ### 5. 获取单次训练详情
 
@@ -639,6 +749,64 @@ GET /api/training/sessions/{sessionId}
 
 - 返回问题、用户回答、完整反馈结果、训练时间
 - 只允许访问当前用户自己的训练记录
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "sessionId": "ts_001",
+    "knowledgeId": 1,
+    "knowledgeTitle": "Spring Boot 自动配置",
+    "questionCount": 1,
+    "answeredCount": 1,
+    "sessionScore": 58,
+    "band": {
+      "code": "INCOMPLETE",
+      "label": "回答不完整",
+      "description": "方向基本正确，但缺少关键细节。"
+    },
+    "majorIssueSummary": "关键点缺失，表达尚可。",
+    "startedAt": "2026-03-15T11:00:00",
+    "completedAt": "2026-03-15T11:03:00",
+    "questions": [
+      {
+        "questionId": "q_001",
+        "orderNo": 1,
+        "parentQuestionId": null,
+        "questionType": "PROJECT",
+        "difficulty": "MEDIUM",
+        "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
+        "hintUsed": false,
+        "answer": "在实际项目里，我们会先引入 starter...",
+        "feedback": {
+          "score": 58,
+          "band": {
+            "code": "INCOMPLETE",
+            "label": "回答不完整",
+            "description": "方向基本正确，但缺少关键细节。"
+          },
+          "majorIssue": "关键点缺失，表达尚可，但缺少自动配置生效条件的说明。",
+          "missingPoints": [
+            "没有说明 @EnableAutoConfiguration 的入口作用",
+            "没有解释条件注解如何决定配置是否生效"
+          ],
+          "betterAnswerApproach": [
+            "先讲自动配置入口，再讲候选配置类加载，再讲条件装配",
+            "最后补一个项目中的实际例子"
+          ],
+          "naturalExampleAnswer": "我一般会从两个层面回答...",
+          "weakTags": ["spring", "autoconfiguration"],
+          "masteryBefore": 42,
+          "masteryAfter": 47
+        }
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -655,6 +823,43 @@ GET /api/dashboard/overview
 - 最近训练概览
 - 当前薄弱知识点 Top N
 - 最近掌握度变化摘要
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "weakKnowledgeItems": [
+      {
+        "knowledgeId": 1,
+        "title": "Spring Boot 自动配置",
+        "mastery": 42,
+        "tags": ["spring", "backend"]
+      }
+    ],
+    "recentTrainings": [
+      {
+        "sessionId": "ts_001",
+        "knowledgeId": 1,
+        "knowledgeTitle": "Spring Boot 自动配置",
+        "sessionScore": 58,
+        "band": {
+          "code": "INCOMPLETE",
+          "label": "回答不完整"
+        },
+        "completedAt": "2026-03-15T11:03:00"
+      }
+    ],
+    "progressSummary": {
+      "trainedCountLast7Days": 6,
+      "averageScoreLast7Days": 64,
+      "improvedKnowledgeCount": 2
+    }
+  }
+}
+```
 
 ### 2. 获取今日推荐训练包（P2）
 
@@ -699,10 +904,12 @@ GET /api/training/recommendations/today
 | 403 | 无权限 | 访问不允许的资源 |
 | 404 | 资源不存在 | 知识点不存在或不属于当前用户 |
 | 409 | 冲突 | 邮箱已注册 |
+| 413 | 请求体过大 | 上传文件超出大小限制 |
 | 422 | 业务校验失败 | 批量导入存在非法数据 |
 | 429 | 请求过快 | LLM 调用限流 |
 | 500 | 系统内部错误 | 未预期异常 |
 | 502 | 上游服务错误 | LLM 服务异常、响应解析失败 |
+| 504 | 上游超时 | 文件解析或 LLM 调用超时 |
 
 ---
 

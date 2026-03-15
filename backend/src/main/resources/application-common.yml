@@ -41,6 +41,11 @@ app:
     exposed-headers: ${APP_CORS_EXPOSED_HEADERS:Location}
     allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:true}
     max-age: ${APP_CORS_MAX_AGE:3600}
+  security:
+    jwt:
+      secret: ${JWT_SECRET:}
+      expires-in: ${JWT_EXPIRES_IN:PT2H}
+      issuer: ${JWT_ISSUER:InterviewOS}
   datasource:
     primary: ${APP_PRIMARY_DATASOURCE:postgresql}
     pool:
