@@ -1,19 +1,28 @@
-# API 接口设计 - V1
+# API 接口设计 - V2
 
 ## 📋 概述
 
-所有 API 遵循统一响应包结构：
+V2 接口设计围绕以下目标展开：
 
-**成功响应**：
+1. 引入用户鉴权与数据隔离
+2. 降低用户进入训练的门槛
+3. 提升题目真实性与训练反馈可信度
+4. 为后续高频训练闭环预留接口扩展点
+
+所有 API 继续遵循统一响应包结构：
+
+**成功响应**
+
 ```json
 {
   "code": 0,
   "message": "success",
-  "data": { ... }
+  "data": {}
 }
 ```
 
-**错误响应**：
+**错误响应**
+
 ```json
 {
   "code": 400,
@@ -22,9 +31,10 @@
 }
 ```
 
-**响应语义冻结（V1）**：
+**响应语义**
+
 - 成功请求：使用 `2xx`，且 `code = 0`
-- 失败请求：使用 `4xx/5xx`，且 `code` 与错误类型一致（如 `400/404/500/502`）
+- 失败请求：使用 `4xx/5xx`，且 `code` 与错误类型一致
 - 禁止“业务失败仍返回 200”
 
 ---
@@ -34,43 +44,254 @@
 - **Base URL**: `http://localhost:8080/api`
 - **Content-Type**: `application/json`
 - **字符编码**: UTF-8
-- **认证要求**: V1 无鉴权（无需 JWT）
+- **认证方式**: `Authorization: Bearer <token>`
+
+### 公开接口
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+### 受保护接口
+
+除上述认证接口外，其他接口默认都需要登录后访问。
 
 ---
 
-## 🔒 V1 契约冻结（不允许随意变更）
+## 🔄 V2 相比 V1 的主要变化
 
-固定端点（V1）：
+### 1. 认证与数据边界
 
-- `GET /api/knowledge`
-- `GET /api/knowledge/{id}`
-- `POST /api/knowledge`
-- `PUT /api/knowledge/{id}`
-- `DELETE /api/knowledge/{id}`
-- `POST /api/training/start`
-- `POST /api/training/submit`
-- `GET /api/training/history/{knowledgeId}`
-- `GET /api/training/history`
+- V1 无鉴权，V2 引入用户体系
+- 知识点、训练记录、训练结果全部按用户隔离
+- 访问不属于当前用户的资源时，应返回 `404` 或 `403`，避免 IDOR
 
-固定字段约束（V1）：
+### 2. 训练接口重构
 
-- `Knowledge.createdAt` 使用 ISO-8601 字符串
-- `TrainingRecord.suggestions` 在 API 返回中固定为 `string[]`（非 JSON 字符串）
-- `EvaluationResult.exampleAnswer` 固定为 camelCase（`exampleAnswer`）
+- V1 `POST /training/start` 改为 V2 `POST /training/sessions`
+- V1 `POST /training/submit` 改为 V2 `POST /training/sessions/{sessionId}/answers`
+- V1 `GET /training/history*` 改为 V2 `GET /training/sessions*`
+
+### 3. 反馈结构重构
+
+- V1 以 `accuracy / depth / clarity / overall` 为主
+- V2 结果页结构改为：
+  - 档位
+  - 主要问题
+  - 缺失点
+  - 更好回答思路
+  - 更自然的参考表达
+
+### 4. 知识输入升级
+
+- 保留单条知识点 CRUD
+- 增加批量导入
+- 文件导入只保留少量高价值格式，不做复杂内容平台
 
 ---
 
-## 📚 知识点管理 API
+## 🧱 枚举约定
 
-### 1. 获取所有知识点
+### QuestionType
 
+| 值 | 说明 |
+|----|------|
+| `FUNDAMENTAL` | 八股 / 基础概念题 |
+| `PROJECT` | 项目经历题 |
+| `SCENARIO` | 实际场景题 |
+
+### Difficulty
+
+| 值 | 说明 |
+|----|------|
+| `EASY` | 基础入门 |
+| `MEDIUM` | 常规面试强度 |
+| `HARD` | 深挖与追问强度 |
+
+### KnowledgeSourceType
+
+| 值 | 说明 |
+|----|------|
+| `MANUAL` | 手工创建 |
+| `BATCH_IMPORT` | 批量导入 |
+| `FILE_IMPORT` | 文件导入 |
+| `ROLE_GENERATED` | 基于岗位生成 |
+
+### FeedbackBand
+
+| 值 | 标签 | 说明 |
+|----|------|------|
+| `UNCLEAR` | 表达不清晰 | 答案结构混乱、难以判断理解程度 |
+| `INCOMPLETE` | 回答不完整 | 有基础理解，但关键点缺失 |
+| `BASIC` | 基础尚可 | 方向正确，但深度不足 |
+| `GOOD` | 回答较完整 | 结构较清晰，关键点基本覆盖 |
+| `STRONG` | 回答扎实 | 内容完整、表达自然、深度较好 |
+
+---
+
+## 🔐 认证 API
+
+### 1. 用户注册
+
+```http
+POST /api/auth/register
 ```
+
+**请求体**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "displayName": "philxin"
+}
+```
+
+**参数校验**
+
+- `email`: 必填，合法邮箱，唯一
+- `password`: 必填，满足密码强度要求
+- `displayName`: 必填，长度 1-50
+
+**响应示例（HTTP 201）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "jwt-token",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "displayName": "philxin",
+      "targetRole": null
+    }
+  }
+}
+```
+
+### 2. 用户登录
+
+```http
+POST /api/auth/login
+```
+
+**请求体**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!"
+}
+```
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "jwt-token",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "displayName": "philxin",
+      "targetRole": "JAVA_BACKEND"
+    }
+  }
+}
+```
+
+### 3. 获取当前用户信息
+
+```http
+GET /api/auth/me
+```
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "email": "user@example.com",
+    "displayName": "philxin",
+    "targetRole": "JAVA_BACKEND"
+  }
+}
+```
+
+---
+
+## 👤 用户训练方向 API
+
+### 1. 更新当前用户训练方向
+
+```http
+PATCH /api/users/me/onboarding
+```
+
+**请求体**
+
+```json
+{
+  "targetRole": "JAVA_BACKEND"
+}
+```
+
+**说明**
+
+- 仅保存训练方向，不做复杂岗位画像
+- 不在 V2 实现深度简历解析
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "targetRole": "JAVA_BACKEND"
+  }
+}
+```
+
+---
+
+## 📚 知识点 API
+
+### KnowledgeResponse
+
+```json
+{
+  "id": 1,
+  "title": "Spring Boot 自动配置",
+  "content": "Spring Boot 的自动配置原理...",
+  "mastery": 42,
+  "tags": ["spring", "backend", "autoconfiguration"],
+  "sourceType": "MANUAL",
+  "createdAt": "2026-03-15T10:30:00",
+  "updatedAt": "2026-03-15T10:30:00"
+}
+```
+
+### 1. 获取知识点列表
+
+```http
 GET /api/knowledge
 ```
 
-**请求参数**: 无
+**查询参数**
 
-**响应示例（HTTP 201）**：
+- `keyword`: 可选，按标题/内容模糊匹配
+- `tag`: 可选，按单个标签过滤
+
+**响应示例（HTTP 200）**
+
 ```json
 {
   "code": 0,
@@ -79,77 +300,41 @@ GET /api/knowledge
     {
       "id": 1,
       "title": "Spring Boot 自动配置",
-      "content": "Spring Boot 的自动配置是其核心功能...",
-      "mastery": 75,
-      "createdAt": "2024-01-15T10:30:00"
-    },
-    {
-      "id": 2,
-      "title": "Vue 3 响应式系统",
-      "content": "Vue 3 使用 Proxy 实现响应式...",
-      "mastery": 45,
-      "createdAt": "2024-01-14T15:20:00"
+      "content": "Spring Boot 的自动配置原理...",
+      "mastery": 42,
+      "tags": ["spring", "backend"],
+      "sourceType": "BATCH_IMPORT",
+      "createdAt": "2026-03-15T10:30:00",
+      "updatedAt": "2026-03-15T10:30:00"
     }
   ]
 }
 ```
 
----
+### 2. 获取知识点详情
 
-### 2. 获取单个知识点
-
-```
+```http
 GET /api/knowledge/{id}
 ```
 
-**路径参数**:
-- `id`: 知识点 ID（Long）
+### 3. 创建单个知识点
 
-**响应示例（HTTP 200）**：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "title": "Spring Boot 自动配置",
-    "content": "Spring Boot 的自动配置是其核心功能...",
-    "mastery": 75,
-    "createdAt": "2024-01-15T10:30:00"
-  }
-}
-```
-
-**错误响应**：
-```json
-{
-  "code": 404,
-  "message": "Knowledge not found with id: 1",
-  "data": null
-}
-```
-
----
-
-### 3. 创建知识点
-
-```
+```http
 POST /api/knowledge
 ```
 
-**请求体**：
+**请求体**
+
 ```json
 {
   "title": "Spring Boot 自动配置",
-  "content": "Spring Boot 的自动配置原理..."
+  "content": "Spring Boot 的自动配置原理...",
+  "tags": ["spring", "backend"]
 }
 ```
 
-**参数校验**：
-- `title`: 必填，长度 1-200
-- `content`: 必填
+**响应示例（HTTP 201）**
 
-**响应示例**：
 ```json
 {
   "code": 0,
@@ -159,256 +344,346 @@ POST /api/knowledge
     "title": "Spring Boot 自动配置",
     "content": "Spring Boot 的自动配置原理...",
     "mastery": 0,
-    "createdAt": "2024-01-15T10:30:00"
+    "tags": ["spring", "backend"],
+    "sourceType": "MANUAL",
+    "createdAt": "2026-03-15T10:30:00",
+    "updatedAt": "2026-03-15T10:30:00"
   }
 }
 ```
 
----
+### 4. 批量导入知识点
 
-### 4. 更新知识点
-
+```http
+POST /api/knowledge/batch-import
 ```
+
+**请求体**
+
+```json
+{
+  "items": [
+    {
+      "title": "Spring Bean 生命周期",
+      "content": "Bean 从实例化到销毁的完整过程...",
+      "tags": ["spring", "bean"]
+    },
+    {
+      "title": "Redis 持久化",
+      "content": "RDB 与 AOF 的差异...",
+      "tags": ["redis", "cache"]
+    }
+  ]
+}
+```
+
+**响应示例（HTTP 201）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "createdCount": 2,
+    "failedItems": []
+  }
+}
+```
+
+### 5. 文件导入知识点（P1）
+
+```http
+POST /api/knowledge/file-imports
+Content-Type: multipart/form-data
+```
+
+**表单字段**
+
+- `file`: 必填，支持少量高价值格式
+- `defaultTags`: 可选，逗号分隔
+
+**响应示例（HTTP 202）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "importId": "imp_001",
+    "status": "PROCESSING"
+  }
+}
+```
+
+### 6. 查询文件导入状态（P1）
+
+```http
+GET /api/knowledge/file-imports/{importId}
+```
+
+### 7. 更新知识点
+
+```http
 PUT /api/knowledge/{id}
 ```
 
-**路径参数**:
-- `id`: 知识点 ID（Long）
+**请求体**
 
-**请求体**：
 ```json
 {
   "title": "更新后的标题",
-  "content": "更新后的内容"
+  "content": "更新后的内容",
+  "tags": ["spring", "advanced"]
 }
 ```
 
-**参数校验**：
-- `title`: 必填，长度 1-200
-- `content`: 必填
+### 8. 删除知识点
 
-**响应示例**：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "title": "更新后的标题",
-    "content": "更新后的内容",
-    "mastery": 75,
-    "createdAt": "2024-01-15T10:30:00"
-  }
-}
-```
-
----
-
-### 5. 删除知识点
-
-```
+```http
 DELETE /api/knowledge/{id}
 ```
 
-**路径参数**:
-- `id`: 知识点 ID（Long）
+**说明**
 
-**响应示例**：
+- 删除知识点时，仍需清理其关联训练记录
+- 只允许删除当前用户拥有的知识点
+
+### 9. 获取当前用户标签列表
+
+```http
+GET /api/knowledge/tags
+```
+
+**响应示例（HTTP 200）**
+
 ```json
 {
   "code": 0,
   "message": "success",
-  "data": null
+  "data": ["spring", "redis", "mysql"]
 }
 ```
-
-**注意**: 删除知识点会级联删除其所有训练记录。
 
 ---
 
-## 🎯 训练流程 API
+## 🎯 训练 API
 
-### 1. 开始训练（生成问题）
+### TrainingSessionResponse
 
-```
-POST /api/training/start
-```
-
-**请求体**：
 ```json
 {
-  "knowledgeId": 1
-}
-```
-
-**参数校验**：
-- `knowledgeId`: 必填，知识点必须存在
-
-**响应示例**：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "question": "请解释 Spring Boot 的自动配置原理，并说明 @EnableAutoConfiguration 注解的作用。"
+  "sessionId": "ts_001",
+  "questionId": "q_001",
+  "knowledgeId": 1,
+  "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
+  "questionType": "PROJECT",
+  "difficulty": "MEDIUM",
+  "hintAvailable": true,
+  "sequence": {
+    "current": 1,
+    "total": 1
   }
 }
 ```
 
-**业务逻辑**：
-1. 查询知识点
-2. 调用 LLM 生成问题
-3. 返回问题文本
+### 1. 开始一次训练会话
 
----
-
-### 2. 提交回答（AI 评分）
-
-```
-POST /api/training/submit
+```http
+POST /api/training/sessions
 ```
 
-**请求体**：
+**请求体**
+
 ```json
 {
   "knowledgeId": 1,
-  "question": "请解释 Spring Boot 的自动配置原理...",
-  "answer": "Spring Boot 通过 @EnableAutoConfiguration 注解实现自动配置。它会扫描 classpath 下的所有 META-INF/spring.factories 文件..."
+  "questionType": "PROJECT",
+  "difficulty": "MEDIUM",
+  "hintEnabled": true
 }
 ```
 
-**参数校验**：
-- `knowledgeId`: 必填，知识点必须存在
-- `question`: 必填
-- `answer`: 必填
+**参数说明**
 
-**响应示例**：
+- `knowledgeId`: 必填，且必须属于当前用户
+- `questionType`: 可选，不传则由系统决定
+- `difficulty`: 可选，默认 `MEDIUM`
+- `hintEnabled`: 可选，默认 `true`
+
+**响应示例（HTTP 200）**
+
 ```json
 {
   "code": 0,
   "message": "success",
   "data": {
-    "accuracy": 80,
-    "depth": 65,
-    "clarity": 82,
-    "overall": 75,
-    "strengths": "回答结构清晰，准确提到了关键概念和注解",
-    "weaknesses": "对条件注解的工作机制理解不够深入，缺少具体例子",
-    "suggestions": [
-      "深入学习 @Conditional 系列注解的工作原理",
-      "了解 AutoConfigurationImportSelector 的选择逻辑",
-      "结合实际项目中的自动配置案例进行理解"
-    ],
-    "exampleAnswer": "Spring Boot 的自动配置原理...\n\n关键点：\n1. @EnableAutoConfiguration 导入 AutoConfigurationImportSelector\n2. 从 META-INF/spring.factories 加载候选配置类\n3. @Conditional 注解决定配置类是否生效..."
+    "sessionId": "ts_001",
+    "questionId": "q_001",
+    "knowledgeId": 1,
+    "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
+    "questionType": "PROJECT",
+    "difficulty": "MEDIUM",
+    "hintAvailable": true,
+    "sequence": {
+      "current": 1,
+      "total": 1
+    }
   }
 }
 ```
 
-**业务逻辑**：
-1. 调用 LLM 评估回答
-2. 计算 overall 分数
-3. 更新知识点掌握度：`newMastery = oldMastery * 0.7 + overall * 0.3`
-4. 保存训练记录
-5. 返回完整评分结果
+### 2. 获取问题提示（P1）
 
----
-
-### 3. 获取训练历史（指定知识点）
-
-```
-GET /api/training/history/{knowledgeId}
+```http
+POST /api/training/sessions/{sessionId}/questions/{questionId}/hint
 ```
 
-**路径参数**:
-- `knowledgeId`: 知识点 ID（Long）
+**响应示例（HTTP 200）**
 
-**响应示例**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "hint": "可以从自动配置类加载入口、条件注解和项目中的实际使用三个角度回答。"
+  }
+}
+```
+
+### 3. 提交回答并获取反馈
+
+```http
+POST /api/training/sessions/{sessionId}/answers
+```
+
+**请求体**
+
+```json
+{
+  "questionId": "q_001",
+  "answer": "在实际项目里，我们会先引入 starter，然后 Spring Boot 会根据 classpath 自动装配 Bean..."
+}
+```
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "score": 58,
+    "band": {
+      "code": "INCOMPLETE",
+      "label": "回答不完整",
+      "description": "方向基本正确，但缺少关键细节。"
+    },
+    "majorIssue": "关键点缺失，表达尚可，但缺少自动配置生效条件的说明。",
+    "missingPoints": [
+      "没有说明 @EnableAutoConfiguration 的入口作用",
+      "没有解释条件注解如何决定配置是否生效"
+    ],
+    "betterAnswerApproach": [
+      "先讲自动配置入口，再讲候选配置类加载，再讲条件装配",
+      "最后补一个项目中的实际例子"
+    ],
+    "naturalExampleAnswer": "我一般会从两个层面回答。第一，Spring Boot 启动时会通过自动配置入口去加载候选配置类；第二，这些配置类并不会全部生效，而是要看条件注解是否满足。实际项目里，我们经常只是引入 starter，但真正生效的 Bean 还是取决于当前依赖和配置。",
+    "weakTags": ["spring", "autoconfiguration"],
+    "masteryBefore": 42,
+    "masteryAfter": 47
+  }
+}
+```
+
+### 4. 获取训练历史列表
+
+```http
+GET /api/training/sessions
+```
+
+**查询参数**
+
+- `knowledgeId`: 可选，仅查询某个知识点的训练历史
+
+**响应示例（HTTP 200）**
+
 ```json
 {
   "code": 0,
   "message": "success",
   "data": [
     {
-      "id": 1,
+      "sessionId": "ts_001",
       "knowledgeId": 1,
-      "question": "请解释 Spring Boot 的自动配置原理...",
-      "answer": "Spring Boot 通过...",
-      "accuracy": 80,
-      "depth": 65,
-      "clarity": 82,
-      "overall": 75,
-      "strengths": "回答结构清晰",
-      "weaknesses": "对条件注解理解不够深入",
-      "suggestions": ["深入学习 @Conditional"],
-      "exampleAnswer": "示例回答...",
-      "createdAt": "2024-01-15T10:35:00"
-    },
-    {
-      "id": 2,
-      "knowledgeId": 1,
-      "question": "什么是 Spring Boot Starter？",
-      "answer": "Starter 是一组依赖集合...",
-      "accuracy": 70,
-      "depth": 60,
-      "clarity": 75,
-      "overall": 68,
-      "strengths": "概念理解正确",
-      "weaknesses": "缺少实际应用场景",
-      "suggestions": ["结合实际项目使用"],
-      "exampleAnswer": "示例回答...",
-      "createdAt": "2024-01-14T16:20:00"
+      "questionType": "PROJECT",
+      "difficulty": "MEDIUM",
+      "score": 58,
+      "band": {
+        "code": "INCOMPLETE",
+        "label": "回答不完整"
+      },
+      "majorIssue": "关键点缺失，表达尚可。",
+      "createdAt": "2026-03-15T11:00:00"
     }
   ]
 }
 ```
 
+### 5. 获取单次训练详情
+
+```http
+GET /api/training/sessions/{sessionId}
+```
+
+**说明**
+
+- 返回问题、用户回答、完整反馈结果、训练时间
+- 只允许访问当前用户自己的训练记录
+
 ---
 
-### 4. 获取所有训练历史
+## 📊 Dashboard / Progress API
 
+### 1. 获取首页概览（P1）
+
+```http
+GET /api/dashboard/overview
 ```
-GET /api/training/history
+
+**响应目标**
+
+- 最近训练概览
+- 当前薄弱知识点 Top N
+- 最近掌握度变化摘要
+
+### 2. 获取今日推荐训练包（P2）
+
+```http
+GET /api/training/recommendations/today
 ```
 
-**请求参数**: 无
+**响应示例（HTTP 200）**
 
-**响应示例（HTTP 200）**：
 ```json
 {
   "code": 0,
   "message": "success",
-  "data": [
-    {
-      "id": 5,
-      "knowledgeId": 2,
-      "question": "Vue 3 的响应式系统有什么改进？",
-      "answer": "Vue 3 使用 Proxy 替代了 Vue 2 的 Object.defineProperty...",
-      "accuracy": 85,
-      "depth": 75,
-      "clarity": 90,
-      "overall": 83,
-      "strengths": "对比清晰，提到了核心改进",
-      "weaknesses": "",
-      "suggestions": ["可以补充一些使用场景"],
-      "exampleAnswer": "示例回答...",
-      "createdAt": "2024-01-15T11:00:00"
-    },
-    {
-      "id": 1,
-      "knowledgeId": 1,
-      "question": "请解释 Spring Boot 的自动配置原理...",
-      "answer": "Spring Boot 通过...",
-      "accuracy": 80,
-      "depth": 65,
-      "clarity": 82,
-      "overall": 75,
-      "strengths": "回答结构清晰",
-      "weaknesses": "对条件注解理解不够深入",
-      "suggestions": ["深入学习 @Conditional"],
-      "exampleAnswer": "示例回答...",
-      "createdAt": "2024-01-15T10:35:00"
-    }
-  ]
+  "data": {
+    "packageId": "pkg_today_001",
+    "title": "今日推荐练习",
+    "items": [
+      {
+        "knowledgeId": 1,
+        "questionType": "SCENARIO",
+        "difficulty": "MEDIUM"
+      },
+      {
+        "knowledgeId": 5,
+        "questionType": "PROJECT",
+        "difficulty": "MEDIUM"
+      }
+    ]
+  }
 }
 ```
 
@@ -419,52 +694,62 @@ GET /api/training/history
 | Code | 说明 | 示例场景 |
 |------|------|----------|
 | 0 | 成功 | 请求正常处理 |
-| 400 | 参数错误 | 必填参数缺失、参数格式错误 |
-| 404 | 资源不存在 | 知识点不存在 |
-| 500 | 系统内部错误 | 未预期异常、数据库运行时错误 |
-| 502 | 上游服务错误 | LLM 服务异常、响应不可解析 |
+| 400 | 参数错误 | 必填参数缺失、字段格式不合法 |
+| 401 | 未认证 | 未携带 token 或 token 无效 |
+| 403 | 无权限 | 访问不允许的资源 |
+| 404 | 资源不存在 | 知识点不存在或不属于当前用户 |
+| 409 | 冲突 | 邮箱已注册 |
+| 422 | 业务校验失败 | 批量导入存在非法数据 |
+| 429 | 请求过快 | LLM 调用限流 |
+| 500 | 系统内部错误 | 未预期异常 |
+| 502 | 上游服务错误 | LLM 服务异常、响应解析失败 |
 
 ---
 
-## 🔒 V1 认证说明
+## 🔒 安全约束
 
-V1 **不实现认证机制**，所有接口无需鉴权即可访问。
-
-这在 V2 版本会通过 JWT 方式改进。
+1. 除 `/auth/**` 外，接口全部要求 Bearer Token
+2. 用户资源按 owner 隔离，禁止通过 ID 访问他人知识点和训练记录
+3. 上传接口限制文件大小、文件类型与解析超时
+4. Controller 只做协议与校验，鉴权与 owner 校验应下沉到 Security / Service
+5. 日志不得打印密码、token、原始敏感回答内容
 
 ---
 
-## 📝 Postman 集合示例
+## 🧪 验收建议
 
-```json
-{
-  "info": {
-    "name": "InterviewOS V1 API",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
-    {
-      "name": "Knowledge",
-      "item": [
-        { "name": "Get All", "request": { "method": "GET", "url": "{{base_url}}/knowledge" } },
-        { "name": "Get By ID", "request": { "method": "GET", "url": "{{base_url}}/knowledge/1" } },
-        { "name": "Create", "request": { "method": "POST", "url": "{{base_url}}/knowledge" } },
-        { "name": "Update", "request": { "method": "PUT", "url": "{{base_url}}/knowledge/1" } },
-        { "name": "Delete", "request": { "method": "DELETE", "url": "{{base_url}}/knowledge/1" } }
-      ]
-    },
-    {
-      "name": "Training",
-      "item": [
-        { "name": "Start", "request": { "method": "POST", "url": "{{base_url}}/training/start" } },
-        { "name": "Submit", "request": { "method": "POST", "url": "{{base_url}}/training/submit" } },
-        { "name": "Get History", "request": { "method": "GET", "url": "{{base_url}}/training/history/1" } },
-        { "name": "Get All History", "request": { "method": "GET", "url": "{{base_url}}/training/history" } }
-      ]
-    }
-  ],
-  "variable": [
-    { "key": "base_url", "value": "http://localhost:8080/api" }
-  ]
-}
-```
+### P0 必测
+
+1. 注册 / 登录成功，并能获取 `me`
+2. 用户 A 无法访问用户 B 的知识点与训练记录
+3. 知识点批量导入成功，标签字段可正常回显
+4. 训练会话可按题型和难度启动
+5. 提交回答后，结果页结构符合新契约
+
+### P1 回归
+
+1. 提示接口只给思路，不直接给完整答案
+2. Dashboard 可返回薄弱项与最近训练摘要
+3. 页面主链路无 401/403 误报与明显卡顿
+
+### P2 预留
+
+1. 今日推荐训练包可基于薄弱项生成
+2. 自动组题不与 P0 契约冲突
+
+---
+
+## 📝 Postman 分组建议
+
+- Auth
+- User
+- Knowledge
+- Training
+- Dashboard
+
+建议在 Postman 环境中预置：
+
+- `base_url = http://localhost:8080/api`
+- `token = <jwt>`
+
+后续如进入实现阶段，本接口文档应优先于现有前端 API 定义与 DTO 命名，前后端契约统一以本文件为准。
