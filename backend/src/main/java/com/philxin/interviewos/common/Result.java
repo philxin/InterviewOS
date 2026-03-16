@@ -17,6 +17,10 @@ public final class Result<T> {
         return new Result<>(0, "success", data);
     }
 
+    public static <T> Result<T> of(int code, String message, T data) {
+        return new Result<>(code, message, data);
+    }
+
     public static Result<Void> success() {
         return new Result<>(0, "success", null);
     }

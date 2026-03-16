@@ -5,9 +5,9 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * 更新知识点请求体。
+ * 批量导入中的单条知识点请求体。
  */
-public class UpdateKnowledgeRequest {
+public class BatchImportKnowledgeItemRequest {
     @NotBlank(message = "title must not be blank")
     @Size(max = 200, message = "title length must be <= 200")
     private String title;

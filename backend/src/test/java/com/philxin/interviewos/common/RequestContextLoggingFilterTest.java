@@ -2,6 +2,7 @@ package com.philxin.interviewos.common;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -11,10 +12,14 @@ import com.philxin.interviewos.config.SecurityConfig;
 import com.philxin.interviewos.controller.KnowledgeController;
 import com.philxin.interviewos.entity.AppUser;
 import com.philxin.interviewos.entity.Knowledge;
+import com.philxin.interviewos.entity.KnowledgeSourceType;
+import com.philxin.interviewos.entity.KnowledgeStatus;
 import com.philxin.interviewos.repository.AppUserRepository;
+import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.security.JwtTokenService;
 import com.philxin.interviewos.security.RestAccessDeniedHandler;
 import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
+import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,6 +57,9 @@ class RequestContextLoggingFilterTest {
     private KnowledgeService knowledgeService;
 
     @MockBean
+    private KnowledgeImportService knowledgeImportService;
+
+    @MockBean
     private JwtTokenService jwtTokenService;
 
     @MockBean
@@ -59,7 +67,7 @@ class RequestContextLoggingFilterTest {
 
     @Test
     void generatesRequestIdHeaderWhenClientDoesNotProvideOne() throws Exception {
-        when(knowledgeService.getKnowledgeList()).thenReturn(List.of(buildKnowledge()));
+        when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
 
@@ -70,7 +78,7 @@ class RequestContextLoggingFilterTest {
 
     @Test
     void preservesClientProvidedRequestId() throws Exception {
-        when(knowledgeService.getKnowledgeList()).thenReturn(List.of(buildKnowledge()));
+        when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
 
@@ -98,7 +106,10 @@ class RequestContextLoggingFilterTest {
         knowledge.setTitle("Trace");
         knowledge.setContent("Request");
         knowledge.setMastery(0);
+        knowledge.setSourceType(KnowledgeSourceType.MANUAL);
+        knowledge.setStatus(KnowledgeStatus.ACTIVE);
         knowledge.setCreatedAt(LocalDateTime.of(2026, 3, 14, 0, 0, 0));
+        knowledge.setUpdatedAt(LocalDateTime.of(2026, 3, 14, 0, 0, 0));
         return knowledge;
     }
 }

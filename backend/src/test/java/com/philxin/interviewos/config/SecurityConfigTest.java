@@ -1,6 +1,7 @@
 package com.philxin.interviewos.config;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,8 +14,12 @@ import com.philxin.interviewos.controller.AuthController;
 import com.philxin.interviewos.controller.KnowledgeController;
 import com.philxin.interviewos.entity.AppUser;
 import com.philxin.interviewos.entity.Knowledge;
+import com.philxin.interviewos.entity.KnowledgeSourceType;
+import com.philxin.interviewos.entity.KnowledgeStatus;
 import com.philxin.interviewos.service.AuthService;
+import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
+import com.philxin.interviewos.security.AuthenticatedUser;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +60,9 @@ class SecurityConfigTest {
 
     @MockBean
     private KnowledgeService knowledgeService;
+
+    @MockBean
+    private KnowledgeImportService knowledgeImportService;
 
     @MockBean
     private AuthService authService;
@@ -112,7 +120,7 @@ class SecurityConfigTest {
     void authenticatedEndpointIncludesBasicSecurityHeaders() throws Exception {
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
-        when(knowledgeService.getKnowledgeList()).thenReturn(List.of(buildKnowledge()));
+        when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
 
         mockMvc.perform(
             get("/knowledge")
@@ -141,7 +149,10 @@ class SecurityConfigTest {
         knowledge.setTitle("Security");
         knowledge.setContent("cors");
         knowledge.setMastery(0);
+        knowledge.setSourceType(KnowledgeSourceType.MANUAL);
+        knowledge.setStatus(KnowledgeStatus.ACTIVE);
         knowledge.setCreatedAt(LocalDateTime.of(2026, 3, 14, 0, 0, 0));
+        knowledge.setUpdatedAt(LocalDateTime.of(2026, 3, 14, 0, 0, 0));
         return knowledge;
     }
 }
