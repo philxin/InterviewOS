@@ -1,6 +1,19 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResult } from '../types'
+import { getStoredToken, resetAuthSession } from '../utils/auth'
+
+export class ApiRequestError extends Error {
+  status?: number
+  payload?: unknown
+
+  constructor(message: string, status?: number, payload?: unknown) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status
+    this.payload = payload
+  }
+}
 
 const apiClient: AxiosInstance = axios.create({
   // 生产环境通过 VITE_API_BASE_URL 覆盖，默认指向本地后端。
@@ -13,7 +26,7 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = getStoredToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -30,12 +43,22 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     const status = error.response?.status as number | undefined
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/'
+    const requestUrl = String(error.config?.url ?? '')
+    const isAuthEntry = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')
+
+    if (status === 401) {
+      resetAuthSession()
+      if (!isAuthEntry && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        window.location.assign(`/login?redirect=${redirect}`)
+      }
     }
     const message = error.response?.data?.message || error.message || 'Request failed'
-    return Promise.reject(new Error(`[${status ?? 'NETWORK'}] ${message}`))
+    return Promise.reject(new ApiRequestError(
+      `[${status ?? 'NETWORK'}] ${message}`,
+      status,
+      error.response?.data?.data
+    ))
   }
 )
 
@@ -59,6 +82,9 @@ const http = {
   },
   put<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return apiClient.put<ApiResult<T>>(url, data, config).then(unwrapResult)
+  },
+  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return apiClient.patch<ApiResult<T>>(url, data, config).then(unwrapResult)
   },
   delete<T>(url: string, config?: AxiosRequestConfig) {
     return apiClient.delete<ApiResult<T>>(url, config).then(unwrapResult)

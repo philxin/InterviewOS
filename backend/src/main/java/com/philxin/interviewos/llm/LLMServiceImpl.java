@@ -40,6 +40,19 @@ public class LLMServiceImpl implements LLMService {
     }
 
     /**
+     * 生成答题提示，失败时映射为 502。
+     */
+    @Override
+    public String generateHint(String knowledgeTitle, String knowledgeContent, String questionText) {
+        String prompt = PromptTemplate.hintGenerationPrompt(knowledgeTitle, knowledgeContent, questionText);
+        String response = callModel(prompt, "generateHint");
+        if (response.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM did not return hint content");
+        }
+        return response.trim();
+    }
+
+    /**
      * 评估回答并解析为结构化结果，解析失败时映射为 502。
      */
     @Override
@@ -47,6 +60,16 @@ public class LLMServiceImpl implements LLMService {
         String prompt = PromptTemplate.answerEvaluationPrompt(question, userAnswer);
         String rawResponse = callModel(prompt, "evaluateAnswer");
         return parseEvaluationResult(rawResponse);
+    }
+
+    /**
+     * 按 V2 反馈结构评估回答，解析失败时映射为 502。
+     */
+    @Override
+    public FeedbackGenerationResult evaluateAnswer(FeedbackGenerationRequest request) {
+        String prompt = PromptTemplate.feedbackGenerationPrompt(request);
+        String rawResponse = callModel(prompt, "evaluateAnswerV2");
+        return parseFeedbackGenerationResult(rawResponse);
     }
 
     private String callModel(String prompt, String operation) {
@@ -108,6 +131,38 @@ public class LLMServiceImpl implements LLMService {
         }
     }
 
+    private FeedbackGenerationResult parseFeedbackGenerationResult(String rawResponse) {
+        try {
+            String json = normalizeJson(rawResponse);
+            JsonNode root = objectMapper.readTree(json);
+            FeedbackGenerationResult result = new FeedbackGenerationResult();
+            result.setScore(resolveFeedbackScore(root));
+            result.setMajorIssue(readText(root, "majorIssue", "major_issue", "weaknesses"));
+            result.setMissingPoints(parseStringList(root, "missingPoints", "missing_points", "suggestions"));
+            result.setBetterAnswerApproach(
+                parseStringList(root, "betterAnswerApproach", "better_answer_approach", "suggestions")
+            );
+            result.setNaturalExampleAnswer(
+                readText(
+                    root,
+                    "naturalExampleAnswer",
+                    "natural_example_answer",
+                    "exampleAnswer",
+                    "example_answer"
+                )
+            );
+            return result;
+        } catch (JsonProcessingException exception) {
+            log.error(
+                "Failed to parse LLM V2 feedback response: responseLength={}, responseFingerprint={}",
+                LogSanitizer.length(rawResponse),
+                LogSanitizer.fingerprint(rawResponse),
+                exception
+            );
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM returned invalid V2 feedback format");
+        }
+    }
+
     private String normalizeJson(String rawResponse) {
         if (rawResponse == null) {
             return "";
@@ -145,6 +200,37 @@ public class LLMServiceImpl implements LLMService {
             suggestions.add(single);
         }
         return suggestions;
+    }
+
+    private List<String> parseStringList(JsonNode root, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            if (root.has(fieldName)) {
+                return parseSuggestions(root.path(fieldName));
+            }
+        }
+        return List.of();
+    }
+
+    private String readText(JsonNode root, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            if (root.has(fieldName)) {
+                return root.path(fieldName).asText("");
+            }
+        }
+        return "";
+    }
+
+    private int resolveFeedbackScore(JsonNode root) {
+        if (root.has("score")) {
+            return normalizeScore(root.path("score").asInt(0));
+        }
+        if (root.has("overall")) {
+            return normalizeScore(root.path("overall").asInt(0));
+        }
+        int accuracy = normalizeScore(root.path("accuracy").asInt(0));
+        int depth = normalizeScore(root.path("depth").asInt(0));
+        int clarity = normalizeScore(root.path("clarity").asInt(0));
+        return normalizeScore((accuracy + depth + clarity) / 3);
     }
 
     private String readExampleAnswer(JsonNode root) {

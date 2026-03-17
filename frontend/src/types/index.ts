@@ -7,6 +7,47 @@ export interface ApiResult<T> {
   data: T
 }
 
+export type TargetRole =
+  | 'JAVA_BACKEND'
+  | 'FRONTEND'
+  | 'FULLSTACK'
+  | 'DEVOPS'
+  | 'DATA_ENGINEER'
+
+export interface AuthUser {
+  id: number
+  email: string
+  displayName: string
+  targetRole: TargetRole | null
+}
+
+export interface AuthResponse {
+  token: string
+  tokenType: 'Bearer' | string
+  expiresIn: number
+  user: AuthUser
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  displayName: string
+}
+
+export interface UpdateOnboardingRequest {
+  targetRole: TargetRole
+}
+
+export interface UserOnboardingResponse {
+  id: number
+  targetRole: TargetRole
+}
+
 /**
  * 知识点实体（对应 /knowledge）。
  */
@@ -15,17 +56,175 @@ export interface Knowledge {
   title: string
   content: string
   mastery: number
+  tags: string[]
+  sourceType: 'MANUAL' | 'BATCH_IMPORT' | 'FILE_IMPORT' | 'ROLE_GENERATED' | null
+  status: 'ACTIVE' | 'ARCHIVED' | null
   createdAt: string
+  updatedAt: string
+  archivedAt: string | null
 }
 
 export interface CreateKnowledgeRequest {
   title: string
   content: string
+  tags?: string[]
 }
 
 export interface UpdateKnowledgeRequest {
   title: string
   content: string
+  tags?: string[]
+}
+
+export interface BatchImportKnowledgeItemRequest {
+  title: string
+  content: string
+  tags?: string[]
+}
+
+export interface BatchImportKnowledgeRequest {
+  items: BatchImportKnowledgeItemRequest[]
+}
+
+export interface BatchImportKnowledgeFailedItem {
+  index: number
+  title: string
+  reason: string
+}
+
+export interface BatchImportKnowledgeResponse {
+  createdCount: number
+  failedCount: number
+  failedItems: BatchImportKnowledgeFailedItem[]
+}
+
+export interface DashboardWeakKnowledgeItem {
+  knowledgeId: number
+  title: string
+  mastery: number
+  tags: string[]
+}
+
+export interface DashboardRecentTrainingItem {
+  sessionId: string
+  knowledgeId: number
+  knowledgeTitle: string
+  sessionScore: number
+  band: FeedbackBand | null
+  completedAt: string
+}
+
+export interface DashboardProgressSummary {
+  trainedCountLast7Days: number
+  averageScoreLast7Days: number
+  improvedKnowledgeCount: number
+}
+
+export interface DashboardOverview {
+  weakKnowledgeItems: DashboardWeakKnowledgeItem[]
+  recentTrainings: DashboardRecentTrainingItem[]
+  progressSummary: DashboardProgressSummary
+}
+
+export interface PagedResult<T> {
+  items: T[]
+  page: number
+  size: number
+  total: number
+  hasNext: boolean
+}
+
+export interface FeedbackBand {
+  code: 'UNCLEAR' | 'INCOMPLETE' | 'BASIC' | 'GOOD' | 'STRONG'
+  label: string
+  description?: string
+}
+
+export interface TrainingFeedback {
+  score: number
+  band: FeedbackBand
+  majorIssue: string
+  missingPoints: string[]
+  betterAnswerApproach: string[]
+  naturalExampleAnswer: string
+  weakTags: string[]
+  masteryBefore: number
+  masteryAfter: number
+}
+
+export type QuestionType = 'FUNDAMENTAL' | 'PROJECT' | 'SCENARIO'
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+
+export interface StartTrainingSessionRequest {
+  knowledgeId: number
+  questionType?: QuestionType
+  difficulty?: Difficulty
+  hintEnabled?: boolean
+}
+
+export interface TrainingSessionStartResponse {
+  sessionId: string
+  questionId: string
+  knowledgeId: number
+  knowledgeTitle: string
+  question: string
+  questionType: QuestionType
+  difficulty: Difficulty
+  hintAvailable: boolean
+  sequence: {
+    current: number
+    total: number
+  }
+}
+
+export interface SubmitSessionAnswerRequest {
+  questionId: string
+  answer: string
+}
+
+export interface TrainingHintResponse {
+  hint: string
+}
+
+export interface TrainingSessionSummary {
+  sessionId: string
+  knowledgeId: number
+  knowledgeTitle: string
+  questionCount: number
+  answeredCount: number
+  sessionScore: number
+  band: FeedbackBand | null
+  majorIssueSummary: string
+  startedAt: string
+  completedAt: string | null
+}
+
+export interface TrainingSessionQuestionDetail {
+  questionId: string
+  orderNo: number
+  parentQuestionId: string | null
+  questionType: QuestionType
+  difficulty: Difficulty
+  question: string
+  hintAvailable: boolean
+  hintText: string | null
+  hintUsed: boolean
+  answer: string
+  feedback: TrainingFeedback | null
+}
+
+export interface TrainingSessionDetail {
+  sessionId: string
+  knowledgeId: number
+  knowledgeTitle: string
+  questionCount: number
+  answeredCount: number
+  sessionScore: number
+  band: FeedbackBand | null
+  majorIssueSummary: string
+  startedAt: string
+  completedAt: string | null
+  questions: TrainingSessionQuestionDetail[]
 }
 
 /**

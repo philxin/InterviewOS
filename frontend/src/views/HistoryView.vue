@@ -1,94 +1,133 @@
 <template>
   <section class="history-page">
     <header class="page-header">
-      <h1>训练历史</h1>
-      <p>按知识点查看历次训练表现。</p>
+      <div>
+        <h1>训练历史</h1>
+        <p>查看每次训练的结果摘要，并按知识点筛选。</p>
+      </div>
+      <button class="btn" type="button" @click="refresh">刷新</button>
     </header>
 
     <section class="card filter-card">
       <label>
         <span>知识点筛选</span>
-        <select v-model.number="selectedKnowledgeId">
-          <option :value="0">全部</option>
+        <select v-model.number="selectedKnowledgeId" @change="onFilterChange">
+          <option :value="0">全部知识点</option>
           <option v-for="item in knowledgeList" :key="item.id" :value="item.id">{{ item.title }}</option>
         </select>
       </label>
-      <button class="btn" type="button" @click="refresh">刷新</button>
+
+      <label>
+        <span>每页条数</span>
+        <select v-model.number="size" @change="onFilterChange">
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+      </label>
     </section>
 
     <div v-if="loading" class="card state-card">正在加载训练历史...</div>
     <div v-else-if="errorMessage" class="card state-card error">{{ errorMessage }}</div>
-    <div v-else-if="filteredRecords.length === 0" class="card state-card">暂无训练记录。</div>
+    <div v-else-if="sessions.length === 0" class="card state-card">暂无训练记录。</div>
 
     <div v-else class="history-list">
-      <article v-for="record in filteredRecords" :key="record.id" class="card history-card">
-        <header>
-          <h2>{{ knowledgeTitleMap[record.knowledgeId] || `知识点 #${record.knowledgeId}` }}</h2>
-          <span class="overall">综合 {{ record.overall }}</span>
-        </header>
-        <p class="meta">{{ formatDateTime(record.createdAt) }}</p>
-        <p class="question">Q：{{ record.question }}</p>
-        <p class="answer">A：{{ record.answer }}</p>
-        <details>
-          <summary>查看详细评分</summary>
-          <div class="detail">
-            <p>准确度：{{ record.accuracy }}</p>
-            <p>深度：{{ record.depth }}</p>
-            <p>清晰度：{{ record.clarity }}</p>
-            <p>优点：{{ record.strengths || '暂无' }}</p>
-            <p>待改进：{{ record.weaknesses || '暂无' }}</p>
-            <ul v-if="record.suggestions.length > 0">
-              <li v-for="(item, index) in record.suggestions" :key="`${record.id}-${index}`">{{ item }}</li>
-            </ul>
-            <p v-else>建议：暂无</p>
+      <article v-for="item in sessions" :key="item.sessionId" class="card history-card">
+        <header class="history-header">
+          <div>
+            <h2>{{ item.knowledgeTitle }}</h2>
+            <p class="meta">
+              {{ formatDateTime(item.startedAt) }}
+              <span v-if="item.completedAt"> · 完成于 {{ formatDateTime(item.completedAt) }}</span>
+            </p>
           </div>
-        </details>
+          <div class="session-side">
+            <span v-if="item.band" class="band-pill">{{ item.band.label }}</span>
+            <strong class="score-pill">{{ item.sessionScore }}</strong>
+          </div>
+        </header>
+
+        <p class="summary">{{ item.majorIssueSummary || '暂无问题摘要。' }}</p>
+        <div class="card-footer">
+          <span class="meta">已答 {{ item.answeredCount }} / {{ item.questionCount }} 题</span>
+          <button class="btn btn-primary" type="button" @click="goResult(item.sessionId)">查看详情</button>
+        </div>
       </article>
     </div>
+
+    <footer v-if="total > 0" class="pagination">
+      <button class="btn" :disabled="page <= 1 || loading" type="button" @click="goPrev">上一页</button>
+      <span>第 {{ page }} 页 · 共 {{ total }} 条</span>
+      <button class="btn" :disabled="!hasNext || loading" type="button" @click="goNext">下一页</button>
+    </footer>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { knowledgeAPI, trainingAPI } from '../api'
-import type { Knowledge, TrainingRecord } from '../types'
+import type { Knowledge, TrainingSessionSummary } from '../types'
 import { formatDateTime } from '../utils/date'
+
+const router = useRouter()
 
 const loading = ref(false)
 const errorMessage = ref('')
 const selectedKnowledgeId = ref(0)
+const page = ref(1)
+const size = ref(10)
+const total = ref(0)
+const hasNext = ref(false)
 const knowledgeList = ref<Knowledge[]>([])
-const records = ref<TrainingRecord[]>([])
-
-const knowledgeTitleMap = computed(() =>
-  knowledgeList.value.reduce<Record<number, string>>((acc, item) => {
-    acc[item.id] = item.title
-    return acc
-  }, {})
-)
-
-const filteredRecords = computed(() => {
-  if (selectedKnowledgeId.value === 0) {
-    return records.value
-  }
-  return records.value.filter((item) => item.knowledgeId === selectedKnowledgeId.value)
-})
+const sessions = ref<TrainingSessionSummary[]>([])
 
 async function refresh() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [knowledge, history] = await Promise.all([
+    const [knowledge, sessionPage] = await Promise.all([
       knowledgeAPI.getList(),
-      trainingAPI.getAllHistory(),
+      trainingAPI.getSessions({
+        page: page.value,
+        size: size.value,
+        knowledgeId: selectedKnowledgeId.value || undefined,
+      }),
     ])
     knowledgeList.value = knowledge
-    records.value = history
+    sessions.value = sessionPage.items
+    total.value = sessionPage.total
+    hasNext.value = sessionPage.hasNext
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '加载历史失败'
   } finally {
     loading.value = false
   }
+}
+
+function onFilterChange() {
+  page.value = 1
+  refresh()
+}
+
+function goPrev() {
+  if (page.value <= 1) {
+    return
+  }
+  page.value -= 1
+  refresh()
+}
+
+function goNext() {
+  if (!hasNext.value) {
+    return
+  }
+  page.value += 1
+  refresh()
+}
+
+function goResult(sessionId: string) {
+  router.push(`/result/${sessionId}`)
 }
 
 onMounted(refresh)
@@ -98,6 +137,13 @@ onMounted(refresh)
 .history-page {
   display: grid;
   gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .page-header h1 {
@@ -111,11 +157,10 @@ onMounted(refresh)
 }
 
 .filter-card {
-  padding: 12px 16px;
+  padding: 14px 16px;
   display: flex;
-  justify-content: space-between;
+  gap: 14px;
   align-items: end;
-  gap: 12px;
 }
 
 label {
@@ -124,7 +169,8 @@ label {
 }
 
 label span {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
   color: #475569;
 }
 
@@ -132,7 +178,7 @@ select {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px 10px;
-  min-width: 260px;
+  min-width: 200px;
 }
 
 .state-card {
@@ -147,68 +193,82 @@ select {
 
 .history-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .history-card {
-  padding: 14px;
+  padding: 16px;
 }
 
-.history-card header {
+.history-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.history-card h2 {
+.history-header h2 {
   margin: 0;
   font-size: 18px;
-}
-
-.overall {
-  color: #1d4ed8;
-  font-weight: 700;
 }
 
 .meta {
   color: #64748b;
   font-size: 13px;
-  margin: 6px 0 8px;
 }
 
-.question,
-.answer {
-  margin: 4px 0;
-  color: #334155;
+.session-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-details {
-  margin-top: 8px;
+.band-pill,
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-summary {
-  cursor: pointer;
+.band-pill {
+  background: #eff6ff;
   color: #1d4ed8;
 }
 
-.detail {
-  margin-top: 8px;
-  display: grid;
-  gap: 4px;
+.score-pill {
+  background: #0f172a;
+  color: #fff;
 }
 
-.detail p {
-  margin: 0;
+.summary {
+  margin: 14px 0 0;
+  color: #334155;
 }
 
-.detail ul {
-  margin: 0;
-  padding-left: 18px;
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
 }
 
 @media (max-width: 768px) {
-  .filter-card {
+  .page-header,
+  .filter-card,
+  .history-header,
+  .card-footer,
+  .pagination {
     flex-direction: column;
     align-items: flex-start;
   }

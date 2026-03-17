@@ -628,6 +628,12 @@ POST /api/training/sessions
 POST /api/training/sessions/{sessionId}/questions/{questionId}/hint
 ```
 
+**说明**
+
+- 只允许访问当前用户自己的训练题目
+- 提示只给答题方向、关键词和结构建议，不直接给完整答案
+- 同一题目重复请求时，服务端返回首次生成的提示内容
+
 **响应示例（HTTP 200）**
 
 ```json
@@ -664,9 +670,9 @@ POST /api/training/sessions/{sessionId}/answers
   "data": {
     "score": 58,
     "band": {
-      "code": "INCOMPLETE",
-      "label": "回答不完整",
-      "description": "方向基本正确，但缺少关键细节。"
+      "code": "BASIC",
+      "label": "基础尚可",
+      "description": "方向正确，但深度不足。"
     },
     "majorIssue": "关键点缺失，表达尚可，但缺少自动配置生效条件的说明。",
     "missingPoints": [
@@ -713,8 +719,8 @@ GET /api/training/sessions
         "answeredCount": 1,
         "sessionScore": 58,
         "band": {
-          "code": "INCOMPLETE",
-          "label": "回答不完整"
+          "code": "BASIC",
+          "label": "基础尚可"
         },
         "majorIssueSummary": "关键点缺失，表达尚可。",
         "startedAt": "2026-03-15T11:00:00",
@@ -764,9 +770,9 @@ GET /api/training/sessions/{sessionId}
     "answeredCount": 1,
     "sessionScore": 58,
     "band": {
-      "code": "INCOMPLETE",
-      "label": "回答不完整",
-      "description": "方向基本正确，但缺少关键细节。"
+      "code": "BASIC",
+      "label": "基础尚可",
+      "description": "方向正确，但深度不足。"
     },
     "majorIssueSummary": "关键点缺失，表达尚可。",
     "startedAt": "2026-03-15T11:00:00",
@@ -779,14 +785,16 @@ GET /api/training/sessions/{sessionId}
         "questionType": "PROJECT",
         "difficulty": "MEDIUM",
         "question": "请结合一个实际项目，说明 Spring Boot 自动配置是如何生效的？",
-        "hintUsed": false,
+        "hintAvailable": false,
+        "hintText": "可以先讲自动配置入口，再讲条件装配，最后补一个项目中的实际例子。",
+        "hintUsed": true,
         "answer": "在实际项目里，我们会先引入 starter...",
         "feedback": {
           "score": 58,
           "band": {
-            "code": "INCOMPLETE",
-            "label": "回答不完整",
-            "description": "方向基本正确，但缺少关键细节。"
+            "code": "BASIC",
+            "label": "基础尚可",
+            "description": "方向正确，但深度不足。"
           },
           "majorIssue": "关键点缺失，表达尚可，但缺少自动配置生效条件的说明。",
           "missingPoints": [
@@ -846,8 +854,8 @@ GET /api/dashboard/overview
         "knowledgeTitle": "Spring Boot 自动配置",
         "sessionScore": 58,
         "band": {
-          "code": "INCOMPLETE",
-          "label": "回答不完整"
+          "code": "BASIC",
+          "label": "基础尚可"
         },
         "completedAt": "2026-03-15T11:03:00"
       }

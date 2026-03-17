@@ -1,43 +1,57 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { EvaluationResult } from '../types'
+import type {
+  TrainingFeedback,
+  TrainingSessionDetail,
+  TrainingSessionStartResponse,
+} from '../types'
 
 export const useTrainingStore = defineStore('training', () => {
-  const knowledgeId = ref<number | null>(null)
-  const knowledgeTitle = ref('')
-  const question = ref('')
-  const answer = ref('')
-  const evaluation = ref<EvaluationResult | null>(null)
+  const currentSession = ref<TrainingSessionStartResponse | null>(null)
+  const currentAnswer = ref('')
+  const currentHint = ref('')
+  const latestFeedback = ref<TrainingFeedback | null>(null)
+  const latestDetail = ref<TrainingSessionDetail | null>(null)
 
-  function setSession(payload: {
-    knowledgeId: number
-    knowledgeTitle: string
-    question: string
-    answer: string
-    evaluation: EvaluationResult
-  }) {
-    knowledgeId.value = payload.knowledgeId
-    knowledgeTitle.value = payload.knowledgeTitle
-    question.value = payload.question
-    answer.value = payload.answer
-    evaluation.value = payload.evaluation
+  function setCurrentSession(session: TrainingSessionStartResponse) {
+    currentSession.value = session
+  }
+
+  function setCurrentAnswer(answer: string) {
+    currentAnswer.value = answer
+  }
+
+  function setCurrentHint(hint: string) {
+    currentHint.value = hint
+  }
+
+  function setLatestFeedback(feedback: TrainingFeedback | null) {
+    latestFeedback.value = feedback
+  }
+
+  function setLatestDetail(detail: TrainingSessionDetail | null) {
+    latestDetail.value = detail
   }
 
   function clearSession() {
-    knowledgeId.value = null
-    knowledgeTitle.value = ''
-    question.value = ''
-    answer.value = ''
-    evaluation.value = null
+    currentSession.value = null
+    currentAnswer.value = ''
+    currentHint.value = ''
+    latestFeedback.value = null
+    latestDetail.value = null
   }
 
   return {
-    knowledgeId,
-    knowledgeTitle,
-    question,
-    answer,
-    evaluation,
-    setSession,
+    currentSession,
+    currentAnswer,
+    currentHint,
+    latestFeedback,
+    latestDetail,
+    setCurrentSession,
+    setCurrentAnswer,
+    setCurrentHint,
+    setLatestFeedback,
+    setLatestDetail,
     clearSession,
   }
 })
