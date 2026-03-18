@@ -33,6 +33,40 @@ export const useTrainingStore = defineStore('training', () => {
     latestDetail.value = detail
   }
 
+  function primeLatestDetailFromFeedback(feedback: TrainingFeedback) {
+    if (!currentSession.value) {
+      return
+    }
+
+    latestDetail.value = {
+      sessionId: currentSession.value.sessionId,
+      knowledgeId: currentSession.value.knowledgeId,
+      knowledgeTitle: currentSession.value.knowledgeTitle,
+      questionCount: currentSession.value.sequence.total,
+      answeredCount: currentSession.value.sequence.current,
+      sessionScore: feedback.score,
+      band: feedback.band,
+      majorIssueSummary: feedback.majorIssue,
+      startedAt: latestDetail.value?.startedAt ?? new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      questions: [
+        {
+          questionId: currentSession.value.questionId,
+          orderNo: currentSession.value.sequence.current,
+          parentQuestionId: null,
+          questionType: currentSession.value.questionType,
+          difficulty: currentSession.value.difficulty,
+          question: currentSession.value.question,
+          hintAvailable: false,
+          hintText: currentHint.value || null,
+          hintUsed: Boolean(currentHint.value),
+          answer: currentAnswer.value,
+          feedback,
+        },
+      ],
+    }
+  }
+
   function clearSession() {
     currentSession.value = null
     currentAnswer.value = ''
@@ -52,6 +86,7 @@ export const useTrainingStore = defineStore('training', () => {
     setCurrentHint,
     setLatestFeedback,
     setLatestDetail,
+    primeLatestDetailFromFeedback,
     clearSession,
   }
 })

@@ -27,9 +27,9 @@
       </label>
     </section>
 
-    <div v-if="loading" class="card state-card">正在加载训练历史...</div>
-    <div v-else-if="errorMessage" class="card state-card error">{{ errorMessage }}</div>
-    <div v-else-if="sessions.length === 0" class="card state-card">暂无训练记录。</div>
+    <AppStateCard v-if="loading" variant="loading" message="正在加载训练历史..." />
+    <AppStateCard v-else-if="errorMessage" variant="error" :message="errorMessage" />
+    <AppStateCard v-else-if="sessions.length === 0" variant="empty" message="暂无训练记录。" />
 
     <div v-else class="history-list">
       <article v-for="item in sessions" :key="item.sessionId" class="card history-card">
@@ -67,6 +67,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { knowledgeAPI, trainingAPI } from '../api'
+import AppStateCard from '../components/AppStateCard.vue'
 import type { Knowledge, TrainingSessionSummary } from '../types'
 import { formatDateTime } from '../utils/date'
 
@@ -179,16 +180,6 @@ select {
   border-radius: 8px;
   padding: 8px 10px;
   min-width: 200px;
-}
-
-.state-card {
-  padding: 20px;
-}
-
-.error {
-  color: #b91c1c;
-  border-color: #fecaca;
-  background: #fff1f2;
 }
 
 .history-list {

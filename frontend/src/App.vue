@@ -24,6 +24,7 @@ async function logout() {
           <router-link v-if="authStore.isAuthenticated" to="/">知识点</router-link>
           <router-link v-if="authStore.isAuthenticated" to="/knowledge/new">新建</router-link>
           <router-link v-if="authStore.isAuthenticated" to="/knowledge/import">导入</router-link>
+          <router-link v-if="authStore.isAuthenticated" to="/knowledge/file-import">文件导入</router-link>
           <router-link v-if="authStore.isAuthenticated" to="/history">历史</router-link>
         </div>
         <div v-if="authStore.isAuthenticated && authStore.user" class="session-actions">

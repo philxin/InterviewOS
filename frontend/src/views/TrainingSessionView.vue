@@ -12,8 +12,8 @@
       </div>
     </header>
 
-    <div v-if="loading" class="card state-card">正在加载训练会话...</div>
-    <div v-else-if="errorMessage" class="card state-card error">{{ errorMessage }}</div>
+    <AppStateCard v-if="loading" variant="loading" message="正在加载训练会话..." />
+    <AppStateCard v-else-if="errorMessage" variant="error" :message="errorMessage" />
 
     <div v-else-if="session" class="training-layout">
       <section class="card question-card">
@@ -53,9 +53,12 @@
         <div class="footer-actions">
           <button class="btn" type="button" :disabled="submitting" @click="goBack">取消</button>
           <button class="btn btn-primary" type="button" :disabled="submitting || !answer" @click="submitAnswer">
-            {{ submitting ? '提交中...' : '提交并查看反馈' }}
+            {{ submitting ? '提交中...' : isLastQuestion ? '提交并查看反馈' : '提交并进入下一题' }}
           </button>
         </div>
+        <p v-if="submitting" class="submit-note">
+          {{ isLastQuestion ? '系统正在评分并整理最终反馈。' : '系统正在评估本题并生成下一题。' }}
+        </p>
       </section>
     </div>
   </section>
@@ -65,6 +68,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { trainingAPI } from '../api'
+import AppStateCard from '../components/AppStateCard.vue'
 import { useTrainingStore } from '../stores/training'
 import type { TrainingSessionDetail, TrainingSessionStartResponse } from '../types'
 
@@ -81,6 +85,12 @@ const hint = ref(trainingStore.currentHint || '')
 const session = ref<TrainingSessionStartResponse | null>(trainingStore.currentSession)
 
 const sessionId = computed(() => String(route.params.sessionId || ''))
+const isLastQuestion = computed(() => {
+  if (!session.value) {
+    return false
+  }
+  return session.value.sequence.current >= session.value.sequence.total
+})
 
 const questionTypeLabelMap: Record<string, string> = {
   FUNDAMENTAL: '基础题',
@@ -95,7 +105,11 @@ const difficultyLabelMap: Record<string, string> = {
 }
 
 async function initSession() {
-  if (session.value && session.value.sessionId === sessionId.value) {
+  if (
+    session.value &&
+    session.value.sessionId === sessionId.value &&
+    trainingStore.latestDetail?.sessionId === sessionId.value
+  ) {
     trainingStore.setCurrentAnswer(answer.value)
     trainingStore.setCurrentHint(hint.value)
     return
@@ -117,41 +131,46 @@ async function initSession() {
 }
 
 function hydrateSessionFromDetail(detail: TrainingSessionDetail) {
-  const firstQuestion = detail.questions[0]
-  if (!firstQuestion) {
+  const fallbackQuestion = detail.questions.length > 0 ? detail.questions[detail.questions.length - 1] : null
+  const activeQuestion = detail.questions.find((question) => !question.answer) ?? fallbackQuestion
+  if (!activeQuestion) {
     errorMessage.value = '训练会话不存在题目'
     return
   }
   session.value = {
     sessionId: detail.sessionId,
-    questionId: firstQuestion.questionId,
+    questionId: activeQuestion.questionId,
     knowledgeId: detail.knowledgeId,
     knowledgeTitle: detail.knowledgeTitle,
-    question: firstQuestion.question,
-    questionType: firstQuestion.questionType,
-    difficulty: firstQuestion.difficulty,
-    hintAvailable: firstQuestion.hintAvailable,
+    question: activeQuestion.question,
+    questionType: activeQuestion.questionType,
+    difficulty: activeQuestion.difficulty,
+    hintAvailable: activeQuestion.hintAvailable,
     sequence: {
-      current: firstQuestion.orderNo,
+      current: activeQuestion.orderNo,
       total: detail.questionCount,
     },
   }
-  answer.value = firstQuestion.answer || trainingStore.currentAnswer
-  hint.value = firstQuestion.hintText || trainingStore.currentHint
+  answer.value = activeQuestion.answer || ''
+  hint.value = activeQuestion.hintText || ''
   trainingStore.setCurrentSession(session.value)
+  trainingStore.setCurrentAnswer(answer.value)
+  trainingStore.setCurrentHint(hint.value)
 }
 
 function syncDetailHint(nextHint: string) {
-  if (!trainingStore.latestDetail || trainingStore.latestDetail.sessionId !== sessionId.value) {
+  if (!session.value || !trainingStore.latestDetail || trainingStore.latestDetail.sessionId !== sessionId.value) {
     return
   }
-  const firstQuestion = trainingStore.latestDetail.questions[0]
-  if (!firstQuestion) {
+  const targetQuestion = trainingStore.latestDetail.questions.find(
+    (question) => question.questionId === session.value?.questionId,
+  )
+  if (!targetQuestion) {
     return
   }
-  firstQuestion.hintText = nextHint
-  firstQuestion.hintUsed = true
-  firstQuestion.hintAvailable = false
+  targetQuestion.hintText = nextHint
+  targetQuestion.hintUsed = true
+  targetQuestion.hintAvailable = false
 }
 
 async function loadHint() {
@@ -198,8 +217,19 @@ async function submitAnswer() {
       questionId: session.value.questionId,
       answer: answer.value,
     })
-    trainingStore.setLatestFeedback(feedback)
-    await router.push(`/result/${session.value.sessionId}`)
+    const detail = await trainingAPI.getSessionDetail(session.value.sessionId)
+    trainingStore.setLatestDetail(detail)
+
+    if (detail.completedAt || detail.answeredCount >= detail.questionCount) {
+      trainingStore.setLatestFeedback(feedback)
+      trainingStore.setCurrentAnswer('')
+      trainingStore.setCurrentHint('')
+      await router.push(`/result/${session.value.sessionId}`)
+      return
+    }
+
+    trainingStore.setLatestFeedback(null)
+    hydrateSessionFromDetail(detail)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '提交失败'
   } finally {
@@ -281,16 +311,6 @@ onMounted(async () => {
 .hint-badge.used {
   background: #e2e8f0;
   color: #334155;
-}
-
-.state-card {
-  padding: 20px;
-}
-
-.error {
-  color: #b91c1c;
-  border-color: #fecaca;
-  background: #fff1f2;
 }
 
 .training-layout {
@@ -381,6 +401,13 @@ textarea {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+.submit-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
 }
 
 @media (max-width: 768px) {

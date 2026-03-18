@@ -19,69 +19,104 @@
       </div>
     </header>
 
-    <div v-if="loading" class="card state-card">正在加载结果详情...</div>
-    <div v-else-if="errorMessage" class="card state-card error">{{ errorMessage }}</div>
+    <AppStateCard v-if="loading" variant="loading" message="正在加载结果详情..." />
+    <AppStateCard v-else-if="errorMessage" variant="error" :message="errorMessage" />
 
-    <div v-else-if="detail && primaryQuestion && primaryFeedback" class="result-grid">
+    <div v-else-if="detail && answeredQuestions.length > 0" class="result-grid">
+      <div v-if="refreshing" class="sync-banner">结果已展示，正在同步服务端最终详情...</div>
       <section class="top-grid">
-        <TrainingFeedbackBand :band="primaryFeedback.band" />
+        <TrainingFeedbackBand v-if="sessionBand" :band="sessionBand" />
+        <div v-else class="card summary-card">
+          <span class="summary-label">反馈档位</span>
+          <h2>暂无档位</h2>
+        </div>
         <div class="card summary-card">
           <span class="summary-label">主要问题</span>
-          <h2>{{ primaryFeedback.majorIssue || detail.majorIssueSummary || '暂无主要问题摘要' }}</h2>
+          <h2>{{ detail.majorIssueSummary || '暂无主要问题摘要' }}</h2>
           <div class="summary-meta">
-            <span>得分 {{ primaryFeedback.score }}</span>
-            <span>掌握度 {{ primaryFeedback.masteryBefore }} → {{ primaryFeedback.masteryAfter }}</span>
+            <span>会话得分 {{ summaryScore }}</span>
+            <span>已完成 {{ detail.answeredCount }} / {{ detail.questionCount }} 题</span>
           </div>
         </div>
       </section>
 
-      <section class="card detail-card">
-        <h2>问题与回答</h2>
-        <p class="question-title">{{ primaryQuestion.question }}</p>
-        <p class="answer-label">你的回答</p>
-        <p class="answer-content">{{ primaryQuestion.answer || '本次未提交回答。' }}</p>
-      </section>
-
-      <section class="card detail-card">
-        <h2>缺失点</h2>
-        <ul>
-          <li v-for="(item, index) in primaryFeedback.missingPoints" :key="`missing-${index}`">{{ item }}</li>
-        </ul>
-      </section>
-
-      <section class="card detail-card">
-        <h2>更好回答思路</h2>
-        <ul>
-          <li v-for="(item, index) in primaryFeedback.betterAnswerApproach" :key="`approach-${index}`">
-            {{ item }}
-          </li>
-        </ul>
-      </section>
-
-      <section class="card detail-card example-card">
-        <h2>自然参考表达</h2>
-        <p>{{ primaryFeedback.naturalExampleAnswer || '暂无参考表达。' }}</p>
-      </section>
-
-      <section class="card detail-card">
-        <h2>薄弱标签</h2>
-        <div v-if="primaryFeedback.weakTags.length > 0" class="tag-list">
-          <span v-for="tag in primaryFeedback.weakTags" :key="tag" class="tag-chip">#{{ tag }}</span>
+      <section v-for="question in answeredQuestions" :key="question.questionId" class="card detail-card question-card">
+        <div class="question-head">
+          <h2>
+            第 {{ question.orderNo }} 题 ·
+            {{ questionTypeLabelMap[question.questionType] }} ·
+            {{ difficultyLabelMap[question.difficulty] }}
+          </h2>
+          <span class="score-pill">得分 {{ question.feedback.score }}</span>
         </div>
-        <p v-else>暂无标签建议。</p>
+        <p class="question-title">{{ question.question }}</p>
+        <p class="answer-label">你的回答</p>
+        <p class="answer-content">{{ question.answer || '本次未提交回答。' }}</p>
+
+        <div class="feedback-grid">
+          <section class="feedback-block">
+            <h3>主要问题</h3>
+            <p>{{ question.feedback.majorIssue || '暂无主要问题。' }}</p>
+          </section>
+
+          <section class="feedback-block">
+            <h3>缺失点</h3>
+            <ul v-if="question.feedback.missingPoints.length > 0">
+              <li v-for="(item, index) in question.feedback.missingPoints" :key="`missing-${question.questionId}-${index}`">
+                {{ item }}
+              </li>
+            </ul>
+            <p v-else>暂无缺失点建议。</p>
+          </section>
+
+          <section class="feedback-block">
+            <h3>更好回答思路</h3>
+            <ul v-if="question.feedback.betterAnswerApproach.length > 0">
+              <li
+                v-for="(item, index) in question.feedback.betterAnswerApproach"
+                :key="`approach-${question.questionId}-${index}`"
+              >
+                {{ item }}
+              </li>
+            </ul>
+            <p v-else>暂无思路建议。</p>
+          </section>
+
+          <section class="feedback-block">
+            <h3>自然参考表达</h3>
+            <p>{{ question.feedback.naturalExampleAnswer || '暂无参考表达。' }}</p>
+          </section>
+
+          <section class="feedback-block">
+            <h3>薄弱标签</h3>
+            <div v-if="question.feedback.weakTags.length > 0" class="tag-list">
+              <span v-for="tag in question.feedback.weakTags" :key="`${question.questionId}-${tag}`" class="tag-chip">
+                #{{ tag }}
+              </span>
+            </div>
+            <p v-else>暂无标签建议。</p>
+          </section>
+
+          <section class="feedback-block">
+            <h3>掌握度变化</h3>
+            <p>{{ question.feedback.masteryBefore }} → {{ question.feedback.masteryAfter }}</p>
+          </section>
+        </div>
       </section>
     </div>
 
-    <div v-else class="card state-card">
-      <p>暂无结果，请先完成一次训练。</p>
-      <button class="btn btn-primary" type="button" @click="goHome">返回知识点</button>
-    </div>
+    <AppStateCard v-else variant="empty" message="暂无结果，请先完成一次训练。">
+      <template #actions>
+        <button class="btn btn-primary" type="button" @click="goHome">返回知识点</button>
+      </template>
+    </AppStateCard>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppStateCard from '../components/AppStateCard.vue'
 import TrainingFeedbackBand from '../components/TrainingFeedbackBand.vue'
 import { trainingAPI } from '../api'
 import { useTrainingStore } from '../stores/training'
@@ -92,12 +127,77 @@ const router = useRouter()
 const trainingStore = useTrainingStore()
 
 const loading = ref(false)
+const refreshing = ref(false)
 const errorMessage = ref('')
 const detail = ref<TrainingSessionDetail | null>(trainingStore.latestDetail)
 
 const sessionId = computed(() => String(route.params.sessionId || ''))
-const primaryQuestion = computed(() => detail.value?.questions[0] ?? null)
-const primaryFeedback = computed(() => primaryQuestion.value?.feedback ?? null)
+const questionTypeLabelMap: Record<string, string> = {
+  FUNDAMENTAL: '基础题',
+  PROJECT: '项目题',
+  SCENARIO: '场景题',
+}
+const difficultyLabelMap: Record<string, string> = {
+  EASY: '简单',
+  MEDIUM: '中等',
+  HARD: '困难',
+}
+
+type QuestionDetail = TrainingSessionDetail['questions'][number]
+type AnsweredQuestionDetail = QuestionDetail & {
+  feedback: NonNullable<QuestionDetail['feedback']>
+}
+
+function isAnsweredQuestion(question: QuestionDetail): question is AnsweredQuestionDetail {
+  return question.feedback !== null
+}
+
+const answeredQuestions = computed<AnsweredQuestionDetail[]>(() => {
+  if (!detail.value) {
+    return []
+  }
+  return detail.value.questions.filter(isAnsweredQuestion)
+})
+
+const sessionBand = computed(() => {
+  if (detail.value?.band) {
+    return detail.value.band
+  }
+  return answeredQuestions.value[0]?.feedback.band ?? null
+})
+
+const summaryScore = computed(() => {
+  if (detail.value?.sessionScore !== null && detail.value?.sessionScore !== undefined) {
+    return detail.value.sessionScore
+  }
+  if (answeredQuestions.value.length === 0) {
+    return 0
+  }
+  const average = answeredQuestions.value
+    .map((question) => question.feedback.score)
+    .reduce((total, score) => total + score, 0) / answeredQuestions.value.length
+  return Math.round(average)
+})
+
+async function fetchDetail(showBlockingState: boolean) {
+  if (showBlockingState) {
+    loading.value = true
+  } else {
+    refreshing.value = true
+  }
+  try {
+    const nextDetail = await trainingAPI.getSessionDetail(sessionId.value)
+    detail.value = nextDetail
+    trainingStore.setLatestDetail(nextDetail)
+  } catch (error) {
+    if (!detail.value || detail.value.sessionId !== sessionId.value) {
+      errorMessage.value = error instanceof Error ? error.message : '加载结果失败'
+    }
+  } finally {
+    loading.value = false
+    refreshing.value = false
+  }
+}
 
 async function loadDetail() {
   if (!sessionId.value) {
@@ -106,19 +206,13 @@ async function loadDetail() {
   }
 
   if (detail.value?.sessionId === sessionId.value) {
+    errorMessage.value = ''
+    void fetchDetail(false)
     return
   }
 
-  loading.value = true
   errorMessage.value = ''
-  try {
-    detail.value = await trainingAPI.getSessionDetail(sessionId.value)
-    trainingStore.setLatestDetail(detail.value)
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '加载结果失败'
-  } finally {
-    loading.value = false
-  }
+  await fetchDetail(true)
 }
 
 function goHome() {
@@ -169,19 +263,19 @@ onMounted(loadDetail)
   flex-wrap: wrap;
 }
 
-.state-card {
-  padding: 20px;
-}
-
-.error {
-  color: #b91c1c;
-  border-color: #fecaca;
-  background: #fff1f2;
-}
-
 .result-grid {
   display: grid;
   gap: 14px;
+}
+
+.sync-banner {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #ecfeff;
+  border: 1px solid #67e8f9;
+  color: #155e75;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .top-grid {
@@ -210,6 +304,30 @@ onMounted(loadDetail)
   margin: 0;
   font-size: 22px;
   line-height: 1.4;
+}
+
+.question-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.question-head h2 {
+  font-size: 20px;
+}
+
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #ecfeff;
+  border: 1px solid #67e8f9;
+  color: #0e7490;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .summary-meta {
@@ -242,20 +360,46 @@ onMounted(loadDetail)
   line-height: 1.8;
 }
 
-.detail-card ul {
-  margin: 16px 0 0;
+.feedback-grid {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.feedback-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.feedback-block h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #334155;
+}
+
+.feedback-block p {
+  margin: 10px 0 0;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.feedback-block ul {
+  margin: 10px 0 0;
   padding-left: 18px;
   display: grid;
   gap: 8px;
   color: #334155;
 }
 
-.example-card p,
-.detail-card > p:last-child {
+.detail-card ul {
   margin: 16px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
   color: #334155;
-  line-height: 1.8;
-  white-space: pre-wrap;
 }
 
 .tag-list {

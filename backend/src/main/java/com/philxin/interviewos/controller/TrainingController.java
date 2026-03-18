@@ -5,15 +5,19 @@ import com.philxin.interviewos.controller.dto.training.StartTrainingRequest;
 import com.philxin.interviewos.controller.dto.training.StartTrainingResponse;
 import com.philxin.interviewos.controller.dto.training.SubmitTrainingRequest;
 import com.philxin.interviewos.controller.dto.training.SubmitTrainingResponse;
+import com.philxin.interviewos.controller.dto.training.TrainingRecommendationResponse;
 import com.philxin.interviewos.controller.dto.training.TrainingRecordResponse;
 import com.philxin.interviewos.entity.TrainingRecord;
 import com.philxin.interviewos.llm.EvaluationResult;
+import com.philxin.interviewos.security.AuthenticatedUser;
+import com.philxin.interviewos.service.TrainingRecommendationService;
 import com.philxin.interviewos.service.TrainingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,9 +31,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/training")
 public class TrainingController {
     private final TrainingService trainingService;
+    private final TrainingRecommendationService trainingRecommendationService;
 
-    public TrainingController(TrainingService trainingService) {
+    public TrainingController(
+        TrainingService trainingService,
+        TrainingRecommendationService trainingRecommendationService
+    ) {
         this.trainingService = trainingService;
+        this.trainingRecommendationService = trainingRecommendationService;
     }
 
     /**
@@ -82,5 +91,17 @@ public class TrainingController {
             .map(TrainingRecordResponse::fromEntity)
             .collect(Collectors.toList());
         return ResponseEntity.ok(Result.success(data));
+    }
+
+    /**
+     * 获取今日推荐训练包（3-5 题）。
+     */
+    @GetMapping("/recommendations/today")
+    public ResponseEntity<Result<TrainingRecommendationResponse>> getTodayRecommendations(
+        @AuthenticationPrincipal AuthenticatedUser authenticatedUser
+    ) {
+        return ResponseEntity.ok(Result.success(
+            trainingRecommendationService.getTodayRecommendations(authenticatedUser)
+        ));
     }
 }

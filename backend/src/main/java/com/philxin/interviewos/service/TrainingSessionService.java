@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TrainingSessionService {
     private static final Logger log = LoggerFactory.getLogger(TrainingSessionService.class);
+    private static final int MIN_AUTO_QUESTION_COUNT = 3;
+    private static final int MAX_AUTO_QUESTION_COUNT = 5;
+    private static final int RECENT_SESSION_WINDOW = 5;
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
 
@@ -72,53 +76,86 @@ public class TrainingSessionService {
     }
 
     /**
-     * 启动一次新的训练会话，P0 默认生成单题。
+     * 启动一次新的训练会话，按标签/掌握度/历史表现自动组题。
      */
     @Transactional
     public TrainingSessionStartResponse startSession(
         AuthenticatedUser authenticatedUser,
         StartTrainingSessionRequest request
     ) {
+        Long userId = getCurrentUserId(authenticatedUser);
         Knowledge knowledge = getActiveKnowledge(authenticatedUser, request.getKnowledgeId());
-        QuestionType questionType = request.getQuestionType() == null ? QuestionType.FUNDAMENTAL : request.getQuestionType();
-        Difficulty difficulty = request.getDifficulty() == null ? Difficulty.MEDIUM : request.getDifficulty();
         boolean hintEnabled = request.getHintEnabled() == null || request.getHintEnabled();
-
-        String generatedQuestion = llmService.generateQuestion(
-            knowledge.getTitle(),
-            buildQuestionContext(knowledge, questionType, difficulty, authenticatedUser)
+        List<TrainingSession> recentSessions = trainingSessionRepository.findByUserIdAndKnowledgeIdOrderByCreatedAtDesc(
+            userId,
+            knowledge.getId()
+        );
+        double recentAverageScore = resolveRecentAverageScore(recentSessions);
+        List<QuestionPlan> questionPlans = buildQuestionPlan(
+            knowledge,
+            request.getQuestionType(),
+            request.getDifficulty(),
+            recentAverageScore
         );
 
         TrainingSession session = new TrainingSession();
         session.setUser(knowledge.getUser());
         session.setKnowledge(knowledge);
-        session.setQuestionType(questionType);
-        session.setDifficulty(difficulty);
+        session.setQuestionType(questionPlans.get(0).questionType());
+        session.setDifficulty(questionPlans.get(0).difficulty());
         session.setHintEnabled(hintEnabled);
         session.setStatus(TrainingSessionStatus.IN_PROGRESS);
-        session.setTotalQuestions(1);
+        session.setTotalQuestions(questionPlans.size());
         session.setAnsweredQuestions(0);
         session.setCurrentQuestionNo(1);
         session = trainingSessionRepository.save(session);
 
-        TrainingQuestion question = new TrainingQuestion();
-        question.setSession(session);
-        question.setKnowledge(knowledge);
-        question.setOrderNo(1);
-        question.setQuestionType(questionType);
-        question.setDifficulty(difficulty);
-        question.setQuestionText(normalize(generatedQuestion));
-        question = trainingQuestionRepository.save(question);
+        TrainingQuestion firstQuestion = null;
+        TrainingQuestion previousQuestion = null;
+        for (QuestionPlan questionPlan : questionPlans) {
+            String generatedQuestion = normalize(
+                llmService.generateQuestion(
+                    knowledge.getTitle(),
+                    buildQuestionContext(
+                        knowledge,
+                        questionPlan.questionType(),
+                        questionPlan.difficulty(),
+                        authenticatedUser,
+                        questionPlan.orderNo(),
+                        questionPlans.size(),
+                        recentAverageScore
+                    )
+                )
+            );
+            if (generatedQuestion.isEmpty()) {
+                throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM did not return question content");
+            }
+
+            TrainingQuestion question = new TrainingQuestion();
+            question.setSession(session);
+            question.setKnowledge(knowledge);
+            question.setOrderNo(questionPlan.orderNo());
+            question.setParentQuestion(previousQuestion);
+            question.setQuestionType(questionPlan.questionType());
+            question.setDifficulty(questionPlan.difficulty());
+            question.setQuestionText(generatedQuestion);
+            question = trainingQuestionRepository.save(question);
+            if (firstQuestion == null) {
+                firstQuestion = question;
+            }
+            previousQuestion = question;
+        }
 
         log.info(
-            "Training session started: sessionId={}, knowledgeId={}, questionType={}, difficulty={}, hintEnabled={}",
+            "Training session started: sessionId={}, knowledgeId={}, totalQuestions={}, firstQuestionType={}, firstDifficulty={}, hintEnabled={}",
             session.getId(),
             knowledge.getId(),
-            questionType,
-            difficulty,
+            session.getTotalQuestions(),
+            session.getQuestionType(),
+            session.getDifficulty(),
             hintEnabled
         );
-        return buildStartResponse(session, question);
+        return buildStartResponse(session, firstQuestion);
     }
 
     /**
@@ -139,6 +176,9 @@ public class TrainingSessionService {
             .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Training question not found"));
         if (question.getAnsweredAt() != null) {
             throw new BusinessException(HttpStatus.CONFLICT, "Training question already answered");
+        }
+        if (!question.getOrderNo().equals(session.getCurrentQuestionNo())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Training question is not current question");
         }
 
         String normalizedAnswer = normalize(request.getAnswer());
@@ -172,20 +212,28 @@ public class TrainingSessionService {
         question.setAnsweredAt(LocalDateTime.now());
         trainingQuestionRepository.save(question);
 
-        session.setAnsweredQuestions(1);
-        session.setSummaryScore(score);
-        session.setSummaryBand(band);
-        session.setSummaryMajorIssue(truncate(majorIssue, 255));
-        session.setStatus(TrainingSessionStatus.COMPLETED);
-        session.setCompletedAt(LocalDateTime.now());
+        int answeredQuestions = Math.max(
+            session.getAnsweredQuestions() == null ? 0 : session.getAnsweredQuestions(),
+            question.getOrderNo()
+        );
+        session.setAnsweredQuestions(answeredQuestions);
+        if (answeredQuestions >= session.getTotalQuestions()) {
+            applySessionSummary(session);
+        } else {
+            session.setCurrentQuestionNo(answeredQuestions + 1);
+        }
         trainingSessionRepository.save(session);
 
         log.info(
-            "Training session answered: sessionId={}, questionId={}, score={}, band={}, masteryBefore={}, masteryAfter={}",
+            "Training session answered: sessionId={}, questionId={}, score={}, band={}, orderNo={}, answeredQuestions={}, totalQuestions={}, status={}, masteryBefore={}, masteryAfter={}",
             sessionId,
             question.getId(),
             score,
             band,
+            question.getOrderNo(),
+            session.getAnsweredQuestions(),
+            session.getTotalQuestions(),
+            session.getStatus(),
             masteryBefore,
             masteryAfter
         );
@@ -206,6 +254,9 @@ public class TrainingSessionService {
         }
 
         TrainingQuestion question = getQuestion(sessionId, questionId);
+        if (!question.getOrderNo().equals(session.getCurrentQuestionNo())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Training question is not current question");
+        }
         if (question.getAnsweredAt() != null) {
             throw new BusinessException(HttpStatus.CONFLICT, "Training question already answered");
         }
@@ -308,8 +359,8 @@ public class TrainingSessionService {
         response.setKnowledgeId(session.getKnowledge().getId());
         response.setKnowledgeTitle(session.getKnowledge().getTitle());
         response.setQuestion(question.getQuestionText());
-        response.setQuestionType(session.getQuestionType().name());
-        response.setDifficulty(session.getDifficulty().name());
+        response.setQuestionType(question.getQuestionType().name());
+        response.setDifficulty(question.getDifficulty().name());
         response.setHintAvailable(Boolean.TRUE.equals(session.getHintEnabled()));
         response.setSequence(new TrainingSessionStartResponse.Sequence(question.getOrderNo(), session.getTotalQuestions()));
         return response;
@@ -401,21 +452,197 @@ public class TrainingSessionService {
         Knowledge knowledge,
         QuestionType questionType,
         Difficulty difficulty,
-        AuthenticatedUser authenticatedUser
+        AuthenticatedUser authenticatedUser,
+        int orderNo,
+        int totalQuestions,
+        double recentAverageScore
     ) {
         String role = authenticatedUser == null ? null : authenticatedUser.getTargetRole();
+        String focusTags = knowledge.getTags() == null
+            ? ""
+            : knowledge.getTags().stream().map(tag -> tag.getTag()).limit(5).collect(Collectors.joining(", "));
+        int mastery = masteryService.normalizeScore(knowledge.getMastery() == null ? 0 : knowledge.getMastery());
+        String recentScoreText = recentAverageScore < 0 ? "N/A" : String.valueOf((int) Math.round(recentAverageScore));
         return """
             targetRole: %s
+            questionIndex: %d/%d
             questionType: %s
             difficulty: %s
+            mastery: %d
+            recentAverageScore: %s
+            focusTags: %s
             knowledgeContent:
             %s
             """.formatted(
             role == null ? "" : role,
+            orderNo,
+            totalQuestions,
             questionType.name(),
             difficulty.name(),
+            mastery,
+            recentScoreText,
+            focusTags,
             knowledge.getContent()
         );
+    }
+
+    private List<QuestionPlan> buildQuestionPlan(
+        Knowledge knowledge,
+        QuestionType preferredType,
+        Difficulty preferredDifficulty,
+        double recentAverageScore
+    ) {
+        int mastery = masteryService.normalizeScore(knowledge.getMastery() == null ? 0 : knowledge.getMastery());
+        int totalQuestions = resolveQuestionCount(knowledge, mastery, recentAverageScore);
+        boolean weakMode = mastery < 60 || (recentAverageScore >= 0 && recentAverageScore < 65);
+
+        List<QuestionType> typeCandidates = resolveTypeCandidates(knowledge, weakMode);
+        Difficulty baseDifficulty = resolveBaseDifficulty(preferredDifficulty, mastery, recentAverageScore);
+
+        List<QuestionPlan> plans = new ArrayList<>();
+        for (int orderNo = 1; orderNo <= totalQuestions; orderNo++) {
+            QuestionType questionType = orderNo == 1 && preferredType != null
+                ? preferredType
+                : typeCandidates.get((orderNo - 1) % typeCandidates.size());
+            Difficulty difficulty = orderNo == 1 && preferredDifficulty != null
+                ? preferredDifficulty
+                : resolveDifficultyByOrder(orderNo, totalQuestions, baseDifficulty, weakMode);
+            plans.add(new QuestionPlan(orderNo, questionType, difficulty));
+        }
+        return plans;
+    }
+
+    private int resolveQuestionCount(Knowledge knowledge, int mastery, double recentAverageScore) {
+        int totalQuestions = MIN_AUTO_QUESTION_COUNT;
+        int tagCount = knowledge.getTags() == null ? 0 : knowledge.getTags().size();
+        if (tagCount >= 3) {
+            totalQuestions += 1;
+        }
+        if (mastery < 60 || (recentAverageScore >= 0 && recentAverageScore < 65)) {
+            totalQuestions += 1;
+        }
+        if (mastery < 35 || (recentAverageScore >= 0 && recentAverageScore < 45)) {
+            totalQuestions += 1;
+        }
+        return Math.max(MIN_AUTO_QUESTION_COUNT, Math.min(MAX_AUTO_QUESTION_COUNT, totalQuestions));
+    }
+
+    private List<QuestionType> resolveTypeCandidates(Knowledge knowledge, boolean weakMode) {
+        boolean hasProjectTag = knowledge.getTags() != null
+            && knowledge.getTags().stream().anyMatch(tag -> {
+                String normalizedTag = normalize(tag.getTag()).toLowerCase();
+                return normalizedTag.contains("project")
+                    || normalizedTag.contains("system")
+                    || normalizedTag.contains("architecture")
+                    || normalizedTag.contains("design")
+                    || normalizedTag.contains("deploy");
+            });
+        if (weakMode) {
+            if (hasProjectTag) {
+                return List.of(QuestionType.FUNDAMENTAL, QuestionType.PROJECT, QuestionType.FUNDAMENTAL, QuestionType.SCENARIO);
+            }
+            return List.of(QuestionType.FUNDAMENTAL, QuestionType.SCENARIO, QuestionType.PROJECT, QuestionType.FUNDAMENTAL);
+        }
+        if (hasProjectTag) {
+            return List.of(QuestionType.PROJECT, QuestionType.SCENARIO, QuestionType.FUNDAMENTAL);
+        }
+        return List.of(QuestionType.SCENARIO, QuestionType.PROJECT, QuestionType.FUNDAMENTAL);
+    }
+
+    private Difficulty resolveBaseDifficulty(Difficulty preferredDifficulty, int mastery, double recentAverageScore) {
+        if (preferredDifficulty != null) {
+            return preferredDifficulty;
+        }
+        return Difficulty.MEDIUM;
+    }
+
+    private Difficulty resolveDifficultyByOrder(
+        int orderNo,
+        int totalQuestions,
+        Difficulty baseDifficulty,
+        boolean weakMode
+    ) {
+        int baseLevel = difficultyToLevel(baseDifficulty);
+        int difficultyLevel;
+        if (weakMode) {
+            if (orderNo == 1) {
+                difficultyLevel = baseLevel;
+            } else if (orderNo == 2) {
+                difficultyLevel = Math.max(0, baseLevel - 1);
+            } else if (orderNo == totalQuestions) {
+                difficultyLevel = Math.min(2, baseLevel + 1);
+            } else {
+                difficultyLevel = baseLevel;
+            }
+        } else if (orderNo >= Math.max(2, totalQuestions - 1)) {
+            difficultyLevel = Math.min(2, baseLevel + 1);
+        } else {
+            difficultyLevel = baseLevel;
+        }
+        return levelToDifficulty(difficultyLevel);
+    }
+
+    private int difficultyToLevel(Difficulty difficulty) {
+        return switch (difficulty) {
+            case EASY -> 0;
+            case MEDIUM -> 1;
+            case HARD -> 2;
+        };
+    }
+
+    private Difficulty levelToDifficulty(int level) {
+        if (level <= 0) {
+            return Difficulty.EASY;
+        }
+        if (level == 1) {
+            return Difficulty.MEDIUM;
+        }
+        return Difficulty.HARD;
+    }
+
+    private double resolveRecentAverageScore(List<TrainingSession> recentSessions) {
+        return recentSessions.stream()
+            .filter(session -> session.getCompletedAt() != null && session.getSummaryScore() != null)
+            .limit(RECENT_SESSION_WINDOW)
+            .mapToInt(TrainingSession::getSummaryScore)
+            .average()
+            .orElse(-1);
+    }
+
+    private void applySessionSummary(TrainingSession session) {
+        List<TrainingQuestion> questions = trainingQuestionRepository.findBySessionIdOrderByOrderNoAsc(session.getId());
+        List<TrainingQuestion> answeredQuestions = questions.stream().filter(question -> question.getScore() != null).toList();
+        int summaryScore = (int) Math.round(
+            answeredQuestions.stream().mapToInt(TrainingQuestion::getScore).average().orElse(0)
+        );
+        FeedbackBand summaryBand = masteryService.resolveBand(summaryScore);
+
+        session.setSummaryScore(summaryScore);
+        session.setSummaryBand(summaryBand);
+        session.setSummaryMajorIssue(resolveSessionMajorIssue(answeredQuestions, summaryBand));
+        session.setCurrentQuestionNo(session.getTotalQuestions());
+        session.setStatus(TrainingSessionStatus.COMPLETED);
+        session.setCompletedAt(LocalDateTime.now());
+    }
+
+    private String resolveSessionMajorIssue(List<TrainingQuestion> answeredQuestions, FeedbackBand summaryBand) {
+        String issueSummary = answeredQuestions.stream()
+            .map(TrainingQuestion::getMajorIssue)
+            .map(this::normalize)
+            .filter(issue -> !issue.isEmpty())
+            .distinct()
+            .limit(2)
+            .collect(Collectors.joining("；"));
+        if (!issueSummary.isEmpty()) {
+            return truncate(issueSummary, 255);
+        }
+        return switch (summaryBand) {
+            case UNCLEAR -> "回答结构仍然不稳定，建议先固定结论与核心逻辑。";
+            case INCOMPLETE -> "关键知识点覆盖不足，建议先补齐核心原理再展开细节。";
+            case BASIC -> "基础方向正确，但深度与案例支撑仍需加强。";
+            case GOOD -> "整体回答较完整，建议继续强化项目细节和表达精炼度。";
+            case STRONG -> "本次发挥稳定，可继续在复杂场景与追问中保持一致性。";
+        };
     }
 
     private FeedbackGenerationRequest buildFeedbackRequest(TrainingQuestion question, String normalizedAnswer) {
@@ -522,5 +749,8 @@ public class TrainingSessionService {
             return normalized;
         }
         return normalized.substring(0, maxLength);
+    }
+
+    private record QuestionPlan(int orderNo, QuestionType questionType, Difficulty difficulty) {
     }
 }

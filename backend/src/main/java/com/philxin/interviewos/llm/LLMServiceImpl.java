@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class LLMServiceImpl implements LLMService {
@@ -20,10 +21,19 @@ public class LLMServiceImpl implements LLMService {
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
+    private final long slowThresholdMs;
+    private final long verySlowThresholdMs;
 
-    public LLMServiceImpl(ChatClient.Builder chatClientBuilder, ObjectMapper objectMapper) {
+    public LLMServiceImpl(
+        ChatClient.Builder chatClientBuilder,
+        ObjectMapper objectMapper,
+        @Value("${app.llm.slow-threshold-ms:8000}") long slowThresholdMs,
+        @Value("${app.llm.very-slow-threshold-ms:15000}") long verySlowThresholdMs
+    ) {
         this.chatClient = chatClientBuilder.build();
         this.objectMapper = objectMapper;
+        this.slowThresholdMs = slowThresholdMs;
+        this.verySlowThresholdMs = verySlowThresholdMs;
     }
 
     /**
@@ -79,7 +89,7 @@ public class LLMServiceImpl implements LLMService {
         try {
             String content = chatClient.prompt(prompt).call().content();
             long elapsed = System.currentTimeMillis() - start;
-            log.info(
+            logByLatency(
                 "LLM {} completed in {} ms, promptLength={}, promptFingerprint={}, responseLength={}, responseFingerprint={}",
                 operation,
                 elapsed,
@@ -101,6 +111,20 @@ public class LLMServiceImpl implements LLMService {
             );
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "LLM service invocation failed");
         }
+    }
+
+    private void logByLatency(String pattern, Object... arguments) {
+        Object elapsedValue = arguments.length > 1 ? arguments[1] : 0L;
+        long elapsed = elapsedValue instanceof Number ? ((Number) elapsedValue).longValue() : 0L;
+        if (elapsed >= verySlowThresholdMs) {
+            log.warn(pattern + ", latencyBand=very_slow", arguments);
+            return;
+        }
+        if (elapsed >= slowThresholdMs) {
+            log.warn(pattern + ", latencyBand=slow", arguments);
+            return;
+        }
+        log.info(pattern + ", latencyBand=normal", arguments);
     }
 
     private EvaluationResult parseEvaluationResult(String rawResponse) {

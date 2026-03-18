@@ -15,9 +15,11 @@ export class ApiRequestError extends Error {
   }
 }
 
+const defaultBaseURL = import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
+
 const apiClient: AxiosInstance = axios.create({
-  // 生产环境通过 VITE_API_BASE_URL 覆盖，默认指向本地后端。
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  // 开发环境默认直连本地后端；生产环境默认走同域反向代理的 /api。
+  baseURL: import.meta.env.VITE_API_BASE_URL || defaultBaseURL,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',

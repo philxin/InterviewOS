@@ -1,9 +1,10 @@
 package com.philxin.interviewos.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -76,10 +77,12 @@ class TrainingSessionServiceTest {
     }
 
     @Test
-    void startSessionCreatesSingleQuestionWithDefaults() {
+    void startSessionCreatesMultiQuestionByAutoPlan() {
         Knowledge knowledge = buildKnowledge(1L, 40);
         when(knowledgeRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(knowledge));
-        when(llmService.generateQuestion(anyString(), anyString())).thenReturn("请解释自动配置。");
+        when(trainingSessionRepository.findByUserIdAndKnowledgeIdOrderByCreatedAtDesc(1L, 1L)).thenReturn(List.of());
+        when(llmService.generateQuestion(anyString(), anyString()))
+            .thenReturn("问题一", "问题二", "问题三", "问题四");
         when(trainingSessionRepository.save(any(TrainingSession.class))).thenAnswer(invocation -> {
             TrainingSession session = invocation.getArgument(0);
             session.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
@@ -87,7 +90,7 @@ class TrainingSessionServiceTest {
         });
         when(trainingQuestionRepository.save(any(TrainingQuestion.class))).thenAnswer(invocation -> {
             TrainingQuestion question = invocation.getArgument(0);
-            question.setId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+            question.setId(UUID.fromString(String.format("22222222-2222-2222-2222-%012d", question.getOrderNo())));
             return question;
         });
 
@@ -97,12 +100,12 @@ class TrainingSessionServiceTest {
         TrainingSessionStartResponse response = trainingSessionService.startSession(authenticatedUser(), request);
 
         assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), response.getSessionId());
-        assertEquals(UUID.fromString("22222222-2222-2222-2222-222222222222"), response.getQuestionId());
+        assertEquals(UUID.fromString("22222222-2222-2222-2222-000000000001"), response.getQuestionId());
         assertEquals("FUNDAMENTAL", response.getQuestionType());
         assertEquals("MEDIUM", response.getDifficulty());
         assertEquals(1, response.getSequence().getCurrent());
-        assertEquals(1, response.getSequence().getTotal());
-        assertEquals("请解释自动配置。", response.getQuestion());
+        assertEquals(4, response.getSequence().getTotal());
+        assertEquals("问题一", response.getQuestion());
     }
 
     @Test
@@ -114,6 +117,7 @@ class TrainingSessionServiceTest {
         when(trainingQuestionRepository.findByIdAndSessionId(question.getId(), session.getId())).thenReturn(Optional.of(question));
         when(knowledgeRepository.save(any(Knowledge.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(trainingQuestionRepository.save(any(TrainingQuestion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trainingQuestionRepository.findBySessionIdOrderByOrderNoAsc(session.getId())).thenReturn(List.of(question));
         when(trainingSessionRepository.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         FeedbackGenerationResult feedbackResult = new FeedbackGenerationResult();
@@ -156,6 +160,105 @@ class TrainingSessionServiceTest {
         assertEquals("回答", feedbackRequest.getUserAnswer());
         assertEquals("Spring", feedbackRequest.getKnowledgeTitle());
         assertEquals("content", feedbackRequest.getKnowledgeContent());
+    }
+
+    @Test
+    void submitAnswerKeepsSessionInProgressBeforeLastQuestion() {
+        Knowledge knowledge = buildKnowledge(1L, 55);
+        TrainingSession session = buildSession(knowledge, 3, 0, 1);
+        TrainingQuestion question = buildQuestion(
+            session,
+            knowledge,
+            UUID.fromString("22222222-2222-2222-2222-222222222221"),
+            1
+        );
+        when(trainingSessionRepository.findByIdAndUserId(session.getId(), 1L)).thenReturn(Optional.of(session));
+        when(trainingQuestionRepository.findByIdAndSessionId(question.getId(), session.getId())).thenReturn(Optional.of(question));
+        when(knowledgeRepository.save(any(Knowledge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trainingQuestionRepository.save(any(TrainingQuestion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trainingSessionRepository.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        FeedbackGenerationResult feedbackResult = new FeedbackGenerationResult();
+        feedbackResult.setScore(66);
+        feedbackResult.setMajorIssue("回答细节不足");
+        feedbackResult.setMissingPoints(List.of("补充案例"));
+        feedbackResult.setBetterAnswerApproach(List.of("先结论后拆解"));
+        feedbackResult.setNaturalExampleAnswer("示例");
+        when(llmService.evaluateAnswer(any(FeedbackGenerationRequest.class))).thenReturn(feedbackResult);
+
+        SubmitSessionAnswerRequest request = new SubmitSessionAnswerRequest();
+        request.setQuestionId(question.getId());
+        request.setAnswer("回答");
+
+        TrainingFeedbackResponse response = trainingSessionService.submitAnswer(authenticatedUser(), session.getId(), request);
+
+        assertEquals(66, response.getScore());
+        assertEquals(TrainingSessionStatus.IN_PROGRESS, session.getStatus());
+        assertEquals(1, session.getAnsweredQuestions());
+        assertEquals(2, session.getCurrentQuestionNo());
+        assertNull(session.getSummaryScore());
+    }
+
+    @Test
+    void submitAnswerCompletesSessionWithAggregatedSummaryWhenLastQuestion() {
+        Knowledge knowledge = buildKnowledge(1L, 60);
+        TrainingSession session = buildSession(knowledge, 3, 2, 3);
+        TrainingQuestion firstQuestion = buildQuestion(
+            session,
+            knowledge,
+            UUID.fromString("22222222-2222-2222-2222-222222222221"),
+            1
+        );
+        firstQuestion.setScore(50);
+        firstQuestion.setMajorIssue("第一题问题");
+
+        TrainingQuestion secondQuestion = buildQuestion(
+            session,
+            knowledge,
+            UUID.fromString("22222222-2222-2222-2222-222222222222"),
+            2
+        );
+        secondQuestion.setScore(70);
+        secondQuestion.setMajorIssue("第二题问题");
+
+        TrainingQuestion thirdQuestion = buildQuestion(
+            session,
+            knowledge,
+            UUID.fromString("22222222-2222-2222-2222-222222222223"),
+            3
+        );
+
+        when(trainingSessionRepository.findByIdAndUserId(session.getId(), 1L)).thenReturn(Optional.of(session));
+        when(trainingQuestionRepository.findByIdAndSessionId(thirdQuestion.getId(), session.getId()))
+            .thenReturn(Optional.of(thirdQuestion));
+        when(knowledgeRepository.save(any(Knowledge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trainingQuestionRepository.save(any(TrainingQuestion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trainingQuestionRepository.findBySessionIdOrderByOrderNoAsc(session.getId()))
+            .thenReturn(List.of(firstQuestion, secondQuestion, thirdQuestion));
+        when(trainingSessionRepository.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        FeedbackGenerationResult feedbackResult = new FeedbackGenerationResult();
+        feedbackResult.setScore(80);
+        feedbackResult.setMajorIssue("第三题问题");
+        feedbackResult.setMissingPoints(List.of("补充容量边界"));
+        feedbackResult.setBetterAnswerApproach(List.of("先指标后方案"));
+        feedbackResult.setNaturalExampleAnswer("示例");
+        when(llmService.evaluateAnswer(any(FeedbackGenerationRequest.class))).thenReturn(feedbackResult);
+
+        SubmitSessionAnswerRequest request = new SubmitSessionAnswerRequest();
+        request.setQuestionId(thirdQuestion.getId());
+        request.setAnswer("最终回答");
+
+        TrainingFeedbackResponse response = trainingSessionService.submitAnswer(authenticatedUser(), session.getId(), request);
+
+        assertEquals(80, response.getScore());
+        assertEquals(TrainingSessionStatus.COMPLETED, session.getStatus());
+        assertEquals(3, session.getAnsweredQuestions());
+        assertEquals(3, session.getCurrentQuestionNo());
+        assertEquals(67, session.getSummaryScore());
+        assertEquals(FeedbackBand.BASIC, session.getSummaryBand());
+        assertEquals("第一题问题；第二题问题", session.getSummaryMajorIssue());
+        assertNotNull(session.getCompletedAt());
     }
 
     @Test
@@ -333,12 +436,29 @@ class TrainingSessionServiceTest {
         return session;
     }
 
+    private TrainingSession buildSession(Knowledge knowledge, int totalQuestions, int answeredQuestions, int currentQuestionNo) {
+        TrainingSession session = buildSession(knowledge);
+        session.setTotalQuestions(totalQuestions);
+        session.setAnsweredQuestions(answeredQuestions);
+        session.setCurrentQuestionNo(currentQuestionNo);
+        return session;
+    }
+
     private TrainingQuestion buildQuestion(TrainingSession session, Knowledge knowledge) {
+        return buildQuestion(
+            session,
+            knowledge,
+            UUID.fromString("22222222-2222-2222-2222-222222222222"),
+            1
+        );
+    }
+
+    private TrainingQuestion buildQuestion(TrainingSession session, Knowledge knowledge, UUID questionId, int orderNo) {
         TrainingQuestion question = new TrainingQuestion();
-        question.setId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        question.setId(questionId);
         question.setSession(session);
         question.setKnowledge(knowledge);
-        question.setOrderNo(1);
+        question.setOrderNo(orderNo);
         question.setQuestionType(QuestionType.PROJECT);
         question.setDifficulty(com.philxin.interviewos.entity.Difficulty.MEDIUM);
         question.setQuestionText("原问题");

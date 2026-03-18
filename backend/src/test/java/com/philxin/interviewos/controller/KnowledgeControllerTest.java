@@ -27,10 +27,12 @@ import com.philxin.interviewos.entity.KnowledgeSourceType;
 import com.philxin.interviewos.entity.KnowledgeStatus;
 import com.philxin.interviewos.entity.KnowledgeTag;
 import com.philxin.interviewos.security.AuthenticatedUser;
+import com.philxin.interviewos.service.KnowledgeFileImportService;
 import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -39,6 +41,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -58,6 +61,9 @@ class KnowledgeControllerTest {
 
     @MockBean
     private KnowledgeImportService knowledgeImportService;
+
+    @MockBean
+    private KnowledgeFileImportService knowledgeFileImportService;
 
     @Test
     void getKnowledgeListReturns200() throws Exception {
@@ -185,6 +191,57 @@ class KnowledgeControllerTest {
             .andExpect(jsonPath("$.code").value(422))
             .andExpect(jsonPath("$.message").value("Batch import validation failed"))
             .andExpect(jsonPath("$.data.failedItems[0].reason").value("content: content must not be blank"));
+    }
+
+    @Test
+    void createKnowledgeFileImportReturns202() throws Exception {
+        UUID importId = UUID.randomUUID();
+        com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportStartResponse response =
+            new com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportStartResponse();
+        response.setImportId(importId);
+        response.setStatus("PENDING");
+        when(
+            knowledgeFileImportService.createFileImport(
+                nullable(AuthenticatedUser.class),
+                org.mockito.ArgumentMatchers.any(),
+                eq("redis,cache")
+            )
+        ).thenReturn(response);
+
+        MockMultipartFile file = new MockMultipartFile("file", "notes.txt", "text/plain", "Redis".getBytes());
+
+        mockMvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/knowledge/file-imports")
+                .file(file)
+                .param("defaultTags", "redis,cache")
+                .with(authentication(authenticationToken()))
+        )
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.code").value(0))
+            .andExpect(jsonPath("$.data.importId").value(importId.toString()))
+            .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    void getKnowledgeFileImportReturns200() throws Exception {
+        UUID importId = UUID.randomUUID();
+        com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportResponse response =
+            new com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportResponse();
+        response.setImportId(importId);
+        response.setFileName("notes.txt");
+        response.setContentType("text/plain");
+        response.setFileSize(1024L);
+        response.setStatus("SUCCESS");
+        response.setDefaultTags(List.of("redis", "cache"));
+        response.setCreatedCount(1);
+        when(knowledgeFileImportService.getFileImport(nullable(AuthenticatedUser.class), eq(importId))).thenReturn(response);
+
+        mockMvc.perform(get("/knowledge/file-imports/" + importId).with(authentication(authenticationToken())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(0))
+            .andExpect(jsonPath("$.data.importId").value(importId.toString()))
+            .andExpect(jsonPath("$.data.status").value("SUCCESS"))
+            .andExpect(jsonPath("$.data.createdCount").value(1));
     }
 
     @Test

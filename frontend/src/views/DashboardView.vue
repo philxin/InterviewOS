@@ -12,8 +12,8 @@
       </div>
     </header>
 
-    <div v-if="loading" class="card state-card">正在加载首页概览...</div>
-    <div v-else-if="errorMessage" class="card state-card error">{{ errorMessage }}</div>
+    <AppStateCard v-if="loading" variant="loading" message="正在加载首页概览..." />
+    <AppStateCard v-else-if="errorMessage" variant="error" :message="errorMessage" />
     <template v-else>
       <section class="overview-grid">
         <article class="card metric-card">
@@ -33,15 +33,112 @@
         </article>
       </section>
 
+      <section class="card recommendation-card">
+        <div class="section-head">
+          <h2>{{ recommendation.title || '今日推荐练习' }}</h2>
+          <span class="section-tip">系统基于薄弱项和最近训练表现生成 3-5 题</span>
+        </div>
+        <AppInlineState
+          v-if="recommendationLoading"
+          variant="loading"
+          text="正在生成今日推荐训练包..."
+        />
+        <AppInlineState
+          v-else-if="recommendationError"
+          variant="error"
+          :text="recommendationError"
+        />
+        <AppInlineState
+          v-else-if="recommendation.items.length === 0"
+          variant="empty"
+          text="暂无推荐训练包，先补充更多知识点后再试。"
+        />
+        <div v-else class="recommendation-list">
+          <article
+            v-for="item in recommendation.items"
+            :key="`recommend-${item.knowledgeId}-${item.questionType}-${item.difficulty}`"
+            class="recommendation-item"
+          >
+            <div class="recommendation-main">
+              <strong>{{ resolveKnowledgeTitle(item.knowledgeId) }}</strong>
+              <div class="recommendation-meta">
+                <span class="band-pill">{{ questionTypeLabelMap[item.questionType] }}</span>
+                <span class="score-pill">{{ difficultyLabelMap[item.difficulty] }}</span>
+              </div>
+            </div>
+            <button
+              class="btn btn-primary"
+              type="button"
+              :disabled="startingKnowledgeId === item.knowledgeId"
+              @click="startRecommendedTraining(item)"
+            >
+              {{ startingKnowledgeId === item.knowledgeId ? '创建中...' : '开始推荐训练' }}
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="card recommendation-card">
+        <div class="section-head">
+          <h2>回练提醒</h2>
+          <span class="section-tip">结合掌握度、最近表现和训练间隔动态更新优先级</span>
+        </div>
+        <AppInlineState
+          v-if="reviewReminderLoading"
+          variant="loading"
+          text="正在生成回练提醒..."
+        />
+        <AppInlineState
+          v-else-if="reviewReminderError"
+          variant="error"
+          :text="reviewReminderError"
+        />
+        <AppInlineState
+          v-else-if="reviewReminder.items.length === 0"
+          variant="empty"
+          text="暂无回练提醒，当前训练节奏良好。"
+        />
+        <div v-else class="recommendation-list">
+          <article
+            v-for="item in reviewReminder.items"
+            :key="`review-${item.knowledgeId}`"
+            class="recommendation-item"
+          >
+            <div class="recommendation-main reminder-main">
+              <strong>{{ item.knowledgeTitle }}</strong>
+              <p class="meta">{{ item.reason }}</p>
+              <div class="recommendation-meta">
+                <span class="score-pill">权重 {{ item.reviewWeight }}</span>
+                <span class="band-pill">{{ questionTypeLabelMap[item.suggestedQuestionType] }}</span>
+                <span class="band-pill">{{ difficultyLabelMap[item.suggestedDifficulty] }}</span>
+              </div>
+              <p class="meta">
+                上次训练：{{ item.lastTrainedAt ? formatDateTime(item.lastTrainedAt) : '暂无训练记录' }}
+              </p>
+            </div>
+            <button
+              class="btn btn-primary"
+              type="button"
+              :disabled="startingKnowledgeId === item.knowledgeId"
+              @click="startReviewTraining(item)"
+            >
+              {{ startingKnowledgeId === item.knowledgeId ? '创建中...' : '立即回练' }}
+            </button>
+          </article>
+        </div>
+      </section>
+
       <section class="summary-grid">
         <article class="card summary-card">
           <div class="section-head">
             <h2>当前薄弱项</h2>
             <span class="section-tip">优先复练掌握度最低的知识点</span>
           </div>
-          <div v-if="overview.weakKnowledgeItems.length === 0" class="empty-copy">
-            暂无知识点数据，先创建 1-2 个训练主题。
-          </div>
+          <AppInlineState
+            v-if="overview.weakKnowledgeItems.length === 0"
+            variant="empty"
+            text="暂无知识点数据，先创建 1-2 个训练主题。"
+          />
           <div v-else class="weak-list">
             <button
               v-for="item in overview.weakKnowledgeItems"
@@ -66,9 +163,11 @@
             <h2>最近训练</h2>
             <span class="section-tip">优先回看最近一轮问题总结</span>
           </div>
-          <div v-if="overview.recentTrainings.length === 0" class="empty-copy">
-            还没有训练记录，先从知识点列表发起一次训练。
-          </div>
+          <AppInlineState
+            v-if="overview.recentTrainings.length === 0"
+            variant="empty"
+            text="还没有训练记录，先从知识点列表发起一次训练。"
+          />
           <div v-else class="recent-list">
             <button
               v-for="item in overview.recentTrainings"
@@ -90,7 +189,11 @@
         </article>
       </section>
 
-      <div v-if="knowledgeList.length === 0" class="card state-card">暂无知识点，请先新建。</div>
+      <AppStateCard
+        v-if="knowledgeList.length === 0"
+        variant="empty"
+        message="暂无知识点，请先新建。"
+      />
 
       <div v-else class="knowledge-list">
         <article v-for="item in knowledgeList" :key="item.id" class="card knowledge-card">
@@ -125,15 +228,31 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AppInlineState from '../components/AppInlineState.vue'
+import AppStateCard from '../components/AppStateCard.vue'
 import MasteryBadge from '../components/MasteryBadge.vue'
-import { dashboardAPI, knowledgeAPI } from '../api'
-import type { DashboardOverview, Knowledge } from '../types'
+import { dashboardAPI, knowledgeAPI, trainingAPI } from '../api'
+import { useTrainingStore } from '../stores/training'
+import type {
+  DashboardOverview,
+  DashboardReviewReminder,
+  DashboardReviewReminderItem,
+  Knowledge,
+  TrainingRecommendation,
+  TrainingRecommendationItem
+} from '../types'
 import { formatDateTime } from '../utils/date'
 
 const router = useRouter()
+const trainingStore = useTrainingStore()
 
 const loading = ref(false)
 const errorMessage = ref('')
+const recommendationLoading = ref(false)
+const recommendationError = ref('')
+const reviewReminderLoading = ref(false)
+const reviewReminderError = ref('')
+const startingKnowledgeId = ref<number | null>(null)
 const knowledgeList = ref<Knowledge[]>([])
 const overview = ref<DashboardOverview>({
   weakKnowledgeItems: [],
@@ -144,6 +263,15 @@ const overview = ref<DashboardOverview>({
     improvedKnowledgeCount: 0,
   },
 })
+const recommendation = ref<TrainingRecommendation>({
+  packageId: '',
+  title: '今日推荐练习',
+  items: [],
+})
+const reviewReminder = ref<DashboardReviewReminder>({
+  items: [],
+  generatedAt: '',
+})
 
 const sourceTypeLabelMap: Record<string, string> = {
   MANUAL: '手动创建',
@@ -152,9 +280,23 @@ const sourceTypeLabelMap: Record<string, string> = {
   ROLE_GENERATED: '系统生成',
 }
 
+const questionTypeLabelMap: Record<string, string> = {
+  FUNDAMENTAL: '基础题',
+  PROJECT: '项目题',
+  SCENARIO: '场景题',
+}
+
+const difficultyLabelMap: Record<string, string> = {
+  EASY: '简单',
+  MEDIUM: '中等',
+  HARD: '困难',
+}
+
 async function fetchDashboard() {
   loading.value = true
   errorMessage.value = ''
+  recommendationError.value = ''
+  reviewReminderError.value = ''
   try {
     const [knowledge, summary] = await Promise.all([
       knowledgeAPI.getList(),
@@ -162,10 +304,47 @@ async function fetchDashboard() {
     ])
     knowledgeList.value = knowledge
     overview.value = summary
+    await Promise.all([
+      fetchTodayRecommendations(),
+      fetchReviewReminders(),
+    ])
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取首页数据失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchTodayRecommendations() {
+  recommendationLoading.value = true
+  recommendationError.value = ''
+  try {
+    recommendation.value = await trainingAPI.getTodayRecommendations()
+  } catch (error) {
+    recommendation.value = {
+      packageId: '',
+      title: '今日推荐练习',
+      items: [],
+    }
+    recommendationError.value = error instanceof Error ? error.message : '获取推荐训练包失败'
+  } finally {
+    recommendationLoading.value = false
+  }
+}
+
+async function fetchReviewReminders() {
+  reviewReminderLoading.value = true
+  reviewReminderError.value = ''
+  try {
+    reviewReminder.value = await dashboardAPI.getReviewReminders()
+  } catch (error) {
+    reviewReminder.value = {
+      items: [],
+      generatedAt: '',
+    }
+    reviewReminderError.value = error instanceof Error ? error.message : '获取回练提醒失败'
+  } finally {
+    reviewReminderLoading.value = false
   }
 }
 
@@ -191,6 +370,57 @@ function goResult(sessionId: string) {
 
 function goHistory() {
   router.push('/history')
+}
+
+function resolveKnowledgeTitle(knowledgeId: number) {
+  const knowledge = knowledgeList.value.find(item => item.id === knowledgeId)
+  return knowledge ? knowledge.title : `知识点 #${knowledgeId}`
+}
+
+async function startRecommendedTraining(item: TrainingRecommendationItem) {
+  startingKnowledgeId.value = item.knowledgeId
+  errorMessage.value = ''
+  try {
+    const session = await trainingAPI.startSession({
+      knowledgeId: item.knowledgeId,
+      questionType: item.questionType,
+      difficulty: item.difficulty,
+      hintEnabled: true,
+    })
+    trainingStore.setCurrentSession(session)
+    trainingStore.setCurrentAnswer('')
+    trainingStore.setCurrentHint('')
+    trainingStore.setLatestFeedback(null)
+    trainingStore.setLatestDetail(null)
+    await router.push(`/training/session/${session.sessionId}`)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '创建推荐训练失败'
+  } finally {
+    startingKnowledgeId.value = null
+  }
+}
+
+async function startReviewTraining(item: DashboardReviewReminderItem) {
+  startingKnowledgeId.value = item.knowledgeId
+  errorMessage.value = ''
+  try {
+    const session = await trainingAPI.startSession({
+      knowledgeId: item.knowledgeId,
+      questionType: item.suggestedQuestionType,
+      difficulty: item.suggestedDifficulty,
+      hintEnabled: true,
+    })
+    trainingStore.setCurrentSession(session)
+    trainingStore.setCurrentAnswer('')
+    trainingStore.setCurrentHint('')
+    trainingStore.setLatestFeedback(null)
+    trainingStore.setLatestDetail(null)
+    await router.push(`/training/session/${session.sessionId}`)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '创建回练会话失败'
+  } finally {
+    startingKnowledgeId.value = null
+  }
 }
 
 async function onDelete(id: number) {
@@ -254,8 +484,8 @@ onMounted(fetchDashboard)
 
 .metric-card,
 .summary-card,
-.knowledge-card,
-.state-card {
+.recommendation-card,
+.knowledge-card {
   padding: 18px;
 }
 
@@ -299,20 +529,17 @@ onMounted(fetchDashboard)
   color: #94a3b8;
 }
 
-.empty-copy {
-  margin-top: 16px;
-  color: #64748b;
-}
-
 .weak-list,
-.recent-list {
+.recent-list,
+.recommendation-list {
   display: grid;
   gap: 10px;
   margin-top: 16px;
 }
 
 .weak-item,
-.recent-item {
+.recent-item,
+.recommendation-item {
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
@@ -322,11 +549,31 @@ onMounted(fetchDashboard)
 }
 
 .weak-main,
-.recent-top {
+.recent-top,
+.recommendation-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+.reminder-main {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.recommendation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.recommendation-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .compact {
@@ -358,12 +605,6 @@ onMounted(fetchDashboard)
 .score-pill {
   background: #0f172a;
   color: #fff;
-}
-
-.error {
-  color: #b91c1c;
-  border-color: #fecaca;
-  background: #fff1f2;
 }
 
 .knowledge-header {
@@ -455,6 +696,8 @@ onMounted(fetchDashboard)
   .knowledge-footer,
   .weak-main,
   .recent-top,
+  .recommendation-main,
+  .recommendation-item,
   .section-head {
     flex-direction: column;
     align-items: flex-start;

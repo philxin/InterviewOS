@@ -4,15 +4,19 @@ import com.philxin.interviewos.common.Result;
 import com.philxin.interviewos.controller.dto.knowledge.BatchImportKnowledgeRequest;
 import com.philxin.interviewos.controller.dto.knowledge.BatchImportKnowledgeResponse;
 import com.philxin.interviewos.controller.dto.knowledge.CreateKnowledgeRequest;
+import com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportResponse;
+import com.philxin.interviewos.controller.dto.knowledge.KnowledgeFileImportStartResponse;
 import com.philxin.interviewos.controller.dto.knowledge.KnowledgeResponse;
 import com.philxin.interviewos.controller.dto.knowledge.UpdateKnowledgeRequest;
 import com.philxin.interviewos.entity.Knowledge;
 import com.philxin.interviewos.security.AuthenticatedUser;
+import com.philxin.interviewos.service.KnowledgeFileImportService;
 import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,22 +28,27 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @Validated
 @RestController
 @RequestMapping("/knowledge")
 public class KnowledgeController {
+    private final KnowledgeFileImportService knowledgeFileImportService;
     private final KnowledgeImportService knowledgeImportService;
     private final KnowledgeService knowledgeService;
 
     public KnowledgeController(
         KnowledgeService knowledgeService,
-        KnowledgeImportService knowledgeImportService
+        KnowledgeImportService knowledgeImportService,
+        KnowledgeFileImportService knowledgeFileImportService
     ) {
         this.knowledgeService = knowledgeService;
         this.knowledgeImportService = knowledgeImportService;
+        this.knowledgeFileImportService = knowledgeFileImportService;
     }
 
     /**
@@ -115,6 +124,34 @@ public class KnowledgeController {
                 .body(Result.of(HttpStatus.UNPROCESSABLE_ENTITY.value(), "Batch import validation failed", response));
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(Result.success(response));
+    }
+
+    /**
+     * 创建文件导入任务，文件解析在后台异步执行。
+     */
+    @PostMapping("/file-imports")
+    public ResponseEntity<Result<KnowledgeFileImportStartResponse>> createKnowledgeFileImport(
+        @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+        @RequestParam("file") MultipartFile file,
+        @RequestParam(value = "defaultTags", required = false) String defaultTags
+    ) {
+        KnowledgeFileImportStartResponse response = knowledgeFileImportService.createFileImport(
+            authenticatedUser,
+            file,
+            defaultTags
+        );
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Result.success(response));
+    }
+
+    /**
+     * 查询文件导入任务状态。
+     */
+    @GetMapping("/file-imports/{importId}")
+    public ResponseEntity<Result<KnowledgeFileImportResponse>> getKnowledgeFileImport(
+        @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+        @PathVariable UUID importId
+    ) {
+        return ResponseEntity.ok(Result.success(knowledgeFileImportService.getFileImport(authenticatedUser, importId)));
     }
 
     /**

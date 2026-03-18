@@ -98,6 +98,25 @@ export interface BatchImportKnowledgeResponse {
   failedItems: BatchImportKnowledgeFailedItem[]
 }
 
+export interface KnowledgeFileImportStartResponse {
+  importId: string
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+}
+
+export interface KnowledgeFileImportResponse {
+  importId: string
+  fileName: string
+  contentType: string
+  fileSize: number
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+  defaultTags: string[]
+  createdCount: number
+  failureReason: string | null
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
 export interface DashboardWeakKnowledgeItem {
   knowledgeId: number
   title: string
@@ -124,6 +143,34 @@ export interface DashboardOverview {
   weakKnowledgeItems: DashboardWeakKnowledgeItem[]
   recentTrainings: DashboardRecentTrainingItem[]
   progressSummary: DashboardProgressSummary
+}
+
+export interface DashboardReviewReminderItem {
+  knowledgeId: number
+  knowledgeTitle: string
+  reviewWeight: number
+  reason: string
+  suggestedQuestionType: QuestionType
+  suggestedDifficulty: Difficulty
+  lastTrainedAt: string | null
+  tags: string[]
+}
+
+export interface DashboardReviewReminder {
+  items: DashboardReviewReminderItem[]
+  generatedAt: string
+}
+
+export interface TrainingRecommendationItem {
+  knowledgeId: number
+  questionType: QuestionType
+  difficulty: Difficulty
+}
+
+export interface TrainingRecommendation {
+  packageId: string
+  title: string
+  items: TrainingRecommendationItem[]
 }
 
 export interface PagedResult<T> {
@@ -209,7 +256,7 @@ export interface TrainingSessionQuestionDetail {
   hintAvailable: boolean
   hintText: string | null
   hintUsed: boolean
-  answer: string
+  answer: string | null
   feedback: TrainingFeedback | null
 }
 

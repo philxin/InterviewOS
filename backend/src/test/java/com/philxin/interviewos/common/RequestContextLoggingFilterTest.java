@@ -19,6 +19,7 @@ import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.security.JwtTokenService;
 import com.philxin.interviewos.security.RestAccessDeniedHandler;
 import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
+import com.philxin.interviewos.service.KnowledgeFileImportService;
 import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
 import java.time.LocalDateTime;
@@ -58,6 +59,9 @@ class RequestContextLoggingFilterTest {
 
     @MockBean
     private KnowledgeImportService knowledgeImportService;
+
+    @MockBean
+    private KnowledgeFileImportService knowledgeFileImportService;
 
     @MockBean
     private JwtTokenService jwtTokenService;

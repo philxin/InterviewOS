@@ -1,11 +1,13 @@
 package com.philxin.interviewos.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.philxin.interviewos.common.BusinessException;
 import com.philxin.interviewos.controller.dto.dashboard.DashboardOverviewResponse;
+import com.philxin.interviewos.controller.dto.dashboard.ReviewReminderResponse;
 import com.philxin.interviewos.entity.AppUser;
 import com.philxin.interviewos.entity.FeedbackBand;
 import com.philxin.interviewos.entity.Knowledge;
@@ -91,6 +93,43 @@ class DashboardServiceTest {
     @Test
     void getOverviewThrows401WhenUserMissing() {
         BusinessException exception = assertThrows(BusinessException.class, () -> dashboardService.getOverview(null));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
+    }
+
+    @Test
+    void getReviewRemindersReturnsSortedItemsWithSuggestion() {
+        Knowledge untrainedKnowledge = buildKnowledge(1L, "Spring Boot 自动配置", 38, List.of("spring", "backend"));
+        Knowledge staleKnowledge = buildKnowledge(2L, "Redis 缓存", 60, List.of("redis"));
+
+        TrainingSession staleSession = buildSession(
+            UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            staleKnowledge,
+            55
+        );
+        staleSession.setCompletedAt(LocalDateTime.now().minusDays(9));
+
+        when(knowledgeRepository.findByUserIdAndStatusOrderByCreatedAtDesc(1L, KnowledgeStatus.ACTIVE))
+            .thenReturn(List.of(staleKnowledge, untrainedKnowledge));
+        when(trainingSessionRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(staleSession));
+
+        ReviewReminderResponse response = dashboardService.getReviewReminders(authenticatedUser(1L));
+
+        assertEquals(2, response.getItems().size());
+        assertEquals(1L, response.getItems().get(0).getKnowledgeId());
+        assertEquals("FUNDAMENTAL", response.getItems().get(0).getSuggestedQuestionType());
+        assertEquals("EASY", response.getItems().get(0).getSuggestedDifficulty());
+        assertNotNull(response.getGeneratedAt());
+        assertEquals(2L, response.getItems().get(1).getKnowledgeId());
+        assertEquals("距离上次训练已超过 9 天，建议尽快复训避免遗忘。", response.getItems().get(1).getReason());
+    }
+
+    @Test
+    void getReviewRemindersThrows401WhenUserMissing() {
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> dashboardService.getReviewReminders(null)
+        );
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
     }

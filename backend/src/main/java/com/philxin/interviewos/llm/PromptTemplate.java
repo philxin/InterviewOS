@@ -4,6 +4,10 @@ package com.philxin.interviewos.llm;
  * Prompt 模板工具，统一管理 LLM 输入格式。
  */
 public final class PromptTemplate {
+    private static final int TITLE_MAX_LENGTH = 200;
+    private static final int QUESTION_MAX_LENGTH = 600;
+    private static final int KNOWLEDGE_CONTENT_MAX_LENGTH = 3000;
+    private static final int ANSWER_MAX_LENGTH = 4000;
 
     private PromptTemplate() {
     }
@@ -17,10 +21,10 @@ public final class PromptTemplate {
             "你是资深技术面试官。请基于下面知识点，生成 1 道高质量面试题。",
             "",
             "知识点标题：",
-            safe(title),
+            safe(title, TITLE_MAX_LENGTH),
             "",
             "知识点内容：",
-            safe(content),
+            safe(content, KNOWLEDGE_CONTENT_MAX_LENGTH),
             "",
             "约束：",
             "1. 只返回问题文本，不要解释",
@@ -38,13 +42,13 @@ public final class PromptTemplate {
             "你是技术面试辅导教练。请基于知识点和当前问题，生成 1 段简短提示。",
             "",
             "知识点标题：",
-            safe(title),
+            safe(title, TITLE_MAX_LENGTH),
             "",
             "知识点内容：",
-            safe(content),
+            safe(content, KNOWLEDGE_CONTENT_MAX_LENGTH),
             "",
             "当前问题：",
-            safe(question),
+            safe(question, QUESTION_MAX_LENGTH),
             "",
             "输出要求：",
             "1. 只返回提示正文，不要返回 JSON",
@@ -63,10 +67,10 @@ public final class PromptTemplate {
             "你是技术面试评估专家。请评估候选人的回答质量，并返回 JSON。",
             "",
             "问题：",
-            safe(question),
+            safe(question, QUESTION_MAX_LENGTH),
             "",
             "回答：",
-            safe(answer),
+            safe(answer, ANSWER_MAX_LENGTH),
             "",
             "输出要求：",
             "1. 仅返回 JSON，不要附加说明",
@@ -94,25 +98,25 @@ public final class PromptTemplate {
             "你是技术面试反馈专家。请基于题目、知识点和候选人回答，输出可直接用于结果页展示的 JSON。",
             "",
             "知识点标题：",
-            safe(request.getKnowledgeTitle()),
+            safe(request.getKnowledgeTitle(), TITLE_MAX_LENGTH),
             "",
             "知识点内容：",
-            safe(request.getKnowledgeContent()),
+            safe(request.getKnowledgeContent(), KNOWLEDGE_CONTENT_MAX_LENGTH),
             "",
             "题目类型：",
-            safe(request.getQuestionType()),
+            safe(request.getQuestionType(), 40),
             "",
             "难度：",
-            safe(request.getDifficulty()),
+            safe(request.getDifficulty(), 40),
             "",
             "是否使用提示：",
             Boolean.TRUE.equals(request.getHintUsed()) ? "true" : "false",
             "",
             "问题：",
-            safe(request.getQuestionText()),
+            safe(request.getQuestionText(), QUESTION_MAX_LENGTH),
             "",
             "回答：",
-            safe(request.getUserAnswer()),
+            safe(request.getUserAnswer(), ANSWER_MAX_LENGTH),
             "",
             "输出要求：",
             "1. 仅返回 JSON，不要附加说明",
@@ -132,7 +136,14 @@ public final class PromptTemplate {
         );
     }
 
-    private static String safe(String value) {
-        return value == null ? "" : value.trim();
+    private static String safe(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.trim();
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, Math.max(0, maxLength)) + "...";
     }
 }

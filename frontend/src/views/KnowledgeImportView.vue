@@ -7,6 +7,7 @@
       </div>
       <div class="actions">
         <button class="btn" type="button" @click="goBack">返回知识点</button>
+        <button class="btn" type="button" @click="goToFileImport">文件导入</button>
         <button class="btn" type="button" @click="addItem">+ 新增一行</button>
       </div>
     </header>
@@ -209,6 +210,10 @@ async function submitBatch() {
 
 function goBack() {
   router.push('/')
+}
+
+function goToFileImport() {
+  router.push('/knowledge/file-import')
 }
 </script>
 

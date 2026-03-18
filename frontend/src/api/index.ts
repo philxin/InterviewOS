@@ -4,15 +4,19 @@ import type {
   AuthUser,
   BatchImportKnowledgeRequest,
   BatchImportKnowledgeResponse,
+  DashboardReviewReminder,
   CreateKnowledgeRequest,
   DashboardOverview,
   PagedResult,
   EvaluationResult,
   Knowledge,
+  KnowledgeFileImportResponse,
+  KnowledgeFileImportStartResponse,
   LoginRequest,
   RegisterRequest,
   StartTrainingSessionRequest,
   SubmitSessionAnswerRequest,
+  TrainingRecommendation,
   TrainingHintResponse,
   StartTrainingRequest,
   StartTrainingResponse,
@@ -40,6 +44,7 @@ export const userAPI = {
 
 export const dashboardAPI = {
   getOverview: () => apiClient.get<DashboardOverview>('/dashboard/overview'),
+  getReviewReminders: () => apiClient.get<DashboardReviewReminder>('/dashboard/review-reminders'),
 }
 
 /**
@@ -54,6 +59,20 @@ export const knowledgeAPI = {
     apiClient.put<Knowledge>(`/knowledge/${id}`, data),
   batchImport: (data: BatchImportKnowledgeRequest) =>
     apiClient.post<BatchImportKnowledgeResponse>('/knowledge/batch-import', data),
+  fileImport: (file: File, defaultTags?: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (defaultTags?.trim()) {
+      formData.append('defaultTags', defaultTags.trim())
+    }
+    return apiClient.post<KnowledgeFileImportStartResponse>('/knowledge/file-imports', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+  getFileImportStatus: (importId: string) =>
+    apiClient.get<KnowledgeFileImportResponse>(`/knowledge/file-imports/${importId}`),
   delete: (id: number) => apiClient.delete<void>(`/knowledge/${id}`),
 }
 
@@ -71,6 +90,8 @@ export const trainingAPI = {
     apiClient.get<PagedResult<TrainingSessionSummary>>('/training/sessions', { params }),
   getSessionDetail: (sessionId: string) =>
     apiClient.get<TrainingSessionDetail>(`/training/sessions/${sessionId}`),
+  getTodayRecommendations: () =>
+    apiClient.get<TrainingRecommendation>('/training/recommendations/today'),
 
   start: (payload: StartTrainingRequest) =>
     apiClient.post<StartTrainingResponse>('/training/start', payload),

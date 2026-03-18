@@ -17,6 +17,7 @@ import com.philxin.interviewos.entity.Knowledge;
 import com.philxin.interviewos.entity.KnowledgeSourceType;
 import com.philxin.interviewos.entity.KnowledgeStatus;
 import com.philxin.interviewos.service.AuthService;
+import com.philxin.interviewos.service.KnowledgeFileImportService;
 import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
 import com.philxin.interviewos.security.AuthenticatedUser;
@@ -63,6 +64,9 @@ class SecurityConfigTest {
 
     @MockBean
     private KnowledgeImportService knowledgeImportService;
+
+    @MockBean
+    private KnowledgeFileImportService knowledgeFileImportService;
 
     @MockBean
     private AuthService authService;

@@ -11,6 +11,8 @@ import com.philxin.interviewos.common.GlobalExceptionHandler;
 import com.philxin.interviewos.controller.dto.dashboard.DashboardOverviewResponse;
 import com.philxin.interviewos.controller.dto.dashboard.ProgressSummaryResponse;
 import com.philxin.interviewos.controller.dto.dashboard.RecentTrainingItemResponse;
+import com.philxin.interviewos.controller.dto.dashboard.ReviewReminderItemResponse;
+import com.philxin.interviewos.controller.dto.dashboard.ReviewReminderResponse;
 import com.philxin.interviewos.controller.dto.dashboard.WeakKnowledgeItemResponse;
 import com.philxin.interviewos.controller.dto.training.FeedbackBandResponse;
 import com.philxin.interviewos.entity.AppUser;
@@ -75,6 +77,32 @@ class DashboardControllerTest {
             .andExpect(jsonPath("$.data.weakKnowledgeItems[0].knowledgeId").value(1))
             .andExpect(jsonPath("$.data.recentTrainings[0].band.code").value("BASIC"))
             .andExpect(jsonPath("$.data.progressSummary.averageScoreLast7Days").value(64));
+    }
+
+    @Test
+    void getReviewRemindersReturns200() throws Exception {
+        ReviewReminderItemResponse reminder = new ReviewReminderItemResponse();
+        reminder.setKnowledgeId(1L);
+        reminder.setKnowledgeTitle("Spring");
+        reminder.setReviewWeight(82);
+        reminder.setReason("掌握度和最近得分都偏低，建议优先回练巩固关键点。");
+        reminder.setSuggestedQuestionType("FUNDAMENTAL");
+        reminder.setSuggestedDifficulty("EASY");
+        reminder.setLastTrainedAt(LocalDateTime.of(2026, 3, 10, 9, 0));
+
+        ReviewReminderResponse response = new ReviewReminderResponse();
+        response.setItems(List.of(reminder));
+        response.setGeneratedAt(LocalDateTime.of(2026, 3, 18, 10, 0));
+
+        when(dashboardService.getReviewReminders(nullable(AuthenticatedUser.class))).thenReturn(response);
+
+        mockMvc.perform(get("/dashboard/review-reminders").with(authentication(authenticationToken())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(0))
+            .andExpect(jsonPath("$.data.items[0].knowledgeId").value(1))
+            .andExpect(jsonPath("$.data.items[0].reviewWeight").value(82))
+            .andExpect(jsonPath("$.data.items[0].suggestedQuestionType").value("FUNDAMENTAL"))
+            .andExpect(jsonPath("$.data.items[0].suggestedDifficulty").value("EASY"));
     }
 
     private UsernamePasswordAuthenticationToken authenticationToken() {

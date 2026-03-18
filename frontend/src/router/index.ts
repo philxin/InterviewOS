@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/knowledge/file-import',
+    name: 'KnowledgeFileImport',
+    component: () => import('../views/KnowledgeFileImportView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/knowledge/edit/:id',
     name: 'KnowledgeEdit',
     component: () => import('../views/KnowledgeFormView.vue'),

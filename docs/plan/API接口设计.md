@@ -900,6 +900,41 @@ GET /api/training/recommendations/today
 }
 ```
 
+### 3. 获取回练提醒（P2）
+
+```http
+GET /api/dashboard/review-reminders
+```
+
+**说明**
+
+- 服务端根据掌握度、近期训练得分和训练间隔动态计算 `reviewWeight`
+- 返回建议的回练题型和难度，供首页一键发起训练
+
+**响应示例（HTTP 200）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "knowledgeId": 1,
+        "knowledgeTitle": "Spring Boot 自动配置",
+        "reviewWeight": 82,
+        "reason": "掌握度和最近得分都偏低，建议优先回练巩固关键点。",
+        "suggestedQuestionType": "FUNDAMENTAL",
+        "suggestedDifficulty": "EASY",
+        "lastTrainedAt": "2026-03-10T09:00:00",
+        "tags": ["spring", "backend"]
+      }
+    ],
+    "generatedAt": "2026-03-18T10:00:00"
+  }
+}
+```
+
 ---
 
 ## ⚠️ 错误码说明
@@ -951,6 +986,7 @@ GET /api/training/recommendations/today
 
 1. 今日推荐训练包可基于薄弱项生成
 2. 自动组题不与 P0 契约冲突
+3. 回练提醒可输出权重和回练入口建议
 
 ---
 

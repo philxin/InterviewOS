@@ -1,11 +1,13 @@
 -- InterviewOS V1 -> V2 PostgreSQL migration
 -- Usage:
 --   export PGPASSWORD='your-db-password'
---   psql -h 127.0.0.1 -U interview_user -d interview_os -f scripts/postgres-v2-migration.sql
+--   psql -h 127.0.0.1 -U interviewos -d interviewos -f scripts/postgres-v2-migration.sql
+-- Optional legacy backfill:
+--   psql -h 127.0.0.1 -U interviewos -d interviewos -f scripts/postgres-v2-training-record-backfill.sql
 --
 -- Notes:
 -- 1. This script is aligned with the current JPA entities in `backend/src/main/java/com/philxin/interviewos/entity`.
--- 2. `training_record` is preserved as-is for backward compatibility.
+-- 2. `training_record` is preserved as read-only legacy source for compatibility.
 -- 3. Existing V1 knowledge rows are assigned to a bootstrap user if no real user exists yet.
 
 BEGIN;
@@ -281,6 +283,55 @@ CREATE INDEX IF NOT EXISTS idx_training_question_knowledge_created
 
 CREATE INDEX IF NOT EXISTS idx_training_question_band_created
     ON training_question(feedback_band, created_at);
+
+CREATE TABLE IF NOT EXISTS knowledge_file_import (
+    id UUID PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    file_size BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    default_tags TEXT NULL,
+    created_count INTEGER NOT NULL DEFAULT 0,
+    failure_reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_import_user_created
+    ON knowledge_file_import(user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_file_import_status_created
+    ON knowledge_file_import(status, created_at);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_knowledge_file_import_user_id'
+    ) THEN
+        ALTER TABLE knowledge_file_import
+            ADD CONSTRAINT fk_knowledge_file_import_user_id
+            FOREIGN KEY (user_id)
+            REFERENCES app_user(id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_knowledge_file_import_status'
+    ) THEN
+        ALTER TABLE knowledge_file_import
+            ADD CONSTRAINT chk_knowledge_file_import_status
+            CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'));
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS training_record (
     id BIGSERIAL PRIMARY KEY,

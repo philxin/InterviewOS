@@ -2,6 +2,7 @@ package com.philxin.interviewos.controller;
 
 import com.philxin.interviewos.common.Result;
 import com.philxin.interviewos.controller.dto.dashboard.DashboardOverviewResponse;
+import com.philxin.interviewos.controller.dto.dashboard.ReviewReminderResponse;
 import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.service.DashboardService;
 import org.springframework.http.ResponseEntity;
@@ -27,5 +28,12 @@ public class DashboardController {
         @AuthenticationPrincipal AuthenticatedUser authenticatedUser
     ) {
         return ResponseEntity.ok(Result.success(dashboardService.getOverview(authenticatedUser)));
+    }
+
+    @GetMapping("/review-reminders")
+    public ResponseEntity<Result<ReviewReminderResponse>> getReviewReminders(
+        @AuthenticationPrincipal AuthenticatedUser authenticatedUser
+    ) {
+        return ResponseEntity.ok(Result.success(dashboardService.getReviewReminders(authenticatedUser)));
     }
 }

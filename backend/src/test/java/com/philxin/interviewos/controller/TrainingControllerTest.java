@@ -1,10 +1,12 @@
 package com.philxin.interviewos.controller;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,9 +15,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.philxin.interviewos.common.BusinessException;
 import com.philxin.interviewos.common.GlobalExceptionHandler;
+import com.philxin.interviewos.controller.dto.training.TrainingRecommendationItemResponse;
+import com.philxin.interviewos.controller.dto.training.TrainingRecommendationResponse;
+import com.philxin.interviewos.entity.AppUser;
 import com.philxin.interviewos.entity.Knowledge;
 import com.philxin.interviewos.entity.TrainingRecord;
 import com.philxin.interviewos.llm.EvaluationResult;
+import com.philxin.interviewos.security.AuthenticatedUser;
+import com.philxin.interviewos.service.TrainingRecommendationService;
 import com.philxin.interviewos.service.TrainingService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +34,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = TrainingController.class, properties = "server.servlet.context-path=")
@@ -42,6 +50,9 @@ class TrainingControllerTest {
 
     @MockBean
     private TrainingService trainingService;
+
+    @MockBean
+    private TrainingRecommendationService trainingRecommendationService;
 
     @Test
     void startTrainingReturns200() throws Exception {
@@ -135,6 +146,35 @@ class TrainingControllerTest {
             .andExpect(jsonPath("$.data").value(nullValue()));
     }
 
+    @Test
+    void getTodayRecommendationsReturns200() throws Exception {
+        TrainingRecommendationItemResponse item1 = new TrainingRecommendationItemResponse();
+        item1.setKnowledgeId(1L);
+        item1.setQuestionType("SCENARIO");
+        item1.setDifficulty("MEDIUM");
+
+        TrainingRecommendationItemResponse item2 = new TrainingRecommendationItemResponse();
+        item2.setKnowledgeId(2L);
+        item2.setQuestionType("PROJECT");
+        item2.setDifficulty("HARD");
+
+        TrainingRecommendationResponse response = new TrainingRecommendationResponse();
+        response.setPackageId("pkg_today_20260318_u1");
+        response.setTitle("今日推荐练习");
+        response.setItems(List.of(item1, item2));
+
+        when(trainingRecommendationService.getTodayRecommendations(nullable(AuthenticatedUser.class))).thenReturn(response);
+
+        mockMvc.perform(get("/training/recommendations/today").with(authentication(authenticationToken())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(0))
+            .andExpect(jsonPath("$.data.packageId").value("pkg_today_20260318_u1"))
+            .andExpect(jsonPath("$.data.title").value("今日推荐练习"))
+            .andExpect(jsonPath("$.data.items[0].knowledgeId").value(1))
+            .andExpect(jsonPath("$.data.items[0].questionType").value("SCENARIO"))
+            .andExpect(jsonPath("$.data.items[1].difficulty").value("HARD"));
+    }
+
     private TrainingRecord buildRecord(Long id, Long knowledgeId) {
         Knowledge knowledge = new Knowledge();
         knowledge.setId(knowledgeId);
@@ -160,5 +200,18 @@ class TrainingControllerTest {
     }
 
     private record SubmitRequest(Long knowledgeId, String question, String answer) {
+    }
+
+    private UsernamePasswordAuthenticationToken authenticationToken() {
+        return new UsernamePasswordAuthenticationToken(AuthenticatedUser.fromEntity(buildUser()), null);
+    }
+
+    private AppUser buildUser() {
+        AppUser user = new AppUser();
+        user.setId(1L);
+        user.setEmail("user@example.com");
+        user.setDisplayName("philxin");
+        user.setPasswordHash("hash");
+        return user;
     }
 }
