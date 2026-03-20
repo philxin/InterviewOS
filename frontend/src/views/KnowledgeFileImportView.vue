@@ -2,8 +2,8 @@
   <section class="file-import-page">
     <header class="page-header">
       <div>
-        <h1>文件导入知识点</h1>
-        <p>上传单个 `txt`、`md` 或 `pdf` 文件，系统会异步解析并生成一条知识点。</p>
+        <h1>📄 文件导入知识点</h1>
+        <p>上传 txt、md 或 pdf 文件，系统会异步解析并生成知识点。</p>
       </div>
       <div class="actions">
         <button class="btn" type="button" @click="goToBatchImport">批量录入</button>
@@ -14,9 +14,9 @@
     <section class="card helper-card">
       <h2>导入规则</h2>
       <ul>
-        <li>支持格式：`txt`、`md`、`pdf`。</li>
-        <li>单文件最大 `5MB`。</li>
-        <li>文件名会作为知识点标题基础，默认标签会做 `trim + lowercase + de-duplicate`。</li>
+        <li>支持格式：txt、md、pdf</li>
+        <li>单文件最大 5MB</li>
+        <li>文件名会作为知识点标题基础</li>
       </ul>
     </section>
 
@@ -27,7 +27,7 @@
       </label>
 
       <div v-if="selectedFile" class="file-meta">
-        <strong>{{ selectedFile.name }}</strong>
+        <strong>📎 {{ selectedFile.name }}</strong>
         <span>{{ formatSize(selectedFile.size) }}</span>
       </div>
 
@@ -60,7 +60,7 @@
       <header class="status-header">
         <div>
           <h2>导入任务状态</h2>
-          <p>任务 ID：{{ task.importId }}</p>
+          <p class="meta-text">任务 ID：{{ task.importId }}</p>
         </div>
         <span class="status-chip" :class="task.status.toLowerCase()">{{ statusLabelMap[task.status] }}</span>
       </header>
@@ -101,7 +101,7 @@
       <p v-if="task.failureReason" class="error">{{ task.failureReason }}</p>
 
       <div class="status-actions">
-        <button class="btn" type="button" @click="refreshStatus">刷新状态</button>
+        <button class="btn" type="button" @click="refreshStatus">🔄 刷新状态</button>
         <button
           v-if="task.status === 'SUCCESS'"
           class="btn btn-primary"
@@ -157,9 +157,7 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  stopPolling()
-})
+onBeforeUnmount(() => { stopPolling() })
 
 function resolveImportIdFromRoute() {
   return typeof route.query.importId === 'string' ? route.query.importId : ''
@@ -172,43 +170,25 @@ function onFileChange(event: Event) {
 }
 
 function validate() {
-  if (!selectedFile.value) {
-    errorMessage.value = '请选择要导入的文件'
-    return false
-  }
-
+  if (!selectedFile.value) { errorMessage.value = '请选择要导入的文件'; return false }
   const lowerName = selectedFile.value.name.toLowerCase()
   if (!lowerName.endsWith('.txt') && !lowerName.endsWith('.md') && !lowerName.endsWith('.pdf')) {
     errorMessage.value = '仅支持 txt、md、pdf 文件'
     return false
   }
-
-  if (selectedFile.value.size > 5 * 1024 * 1024) {
-    errorMessage.value = '文件大小不能超过 5MB'
-    return false
-  }
-
+  if (selectedFile.value.size > 5 * 1024 * 1024) { errorMessage.value = '文件大小不能超过 5MB'; return false }
   const invalidTag = normalizedTags.value.find((tag) => tag.length > 50)
-  if (invalidTag) {
-    errorMessage.value = `标签长度不能超过 50：${invalidTag}`
-    return false
-  }
+  if (invalidTag) { errorMessage.value = `标签长度不能超过 50：${invalidTag}`; return false }
   return true
 }
 
 async function submitFile() {
-  if (!validate() || !selectedFile.value) {
-    return
-  }
-
+  if (!validate() || !selectedFile.value) return
   submitting.value = true
   errorMessage.value = ''
   try {
     const response = await knowledgeAPI.fileImport(selectedFile.value, defaultTagsInput.value)
-    await router.replace({
-      path: '/knowledge/file-import',
-      query: { importId: response.importId },
-    })
+    await router.replace({ path: '/knowledge/file-import', query: { importId: response.importId } })
     await fetchTask(response.importId)
     schedulePolling()
   } catch (error) {
@@ -220,9 +200,7 @@ async function submitFile() {
 
 async function refreshStatus() {
   const importId = task.value?.importId || resolveImportIdFromRoute()
-  if (!importId) {
-    return
-  }
+  if (!importId) return
   await fetchTask(importId)
 }
 
@@ -230,9 +208,7 @@ async function fetchTask(importId: string) {
   try {
     task.value = await knowledgeAPI.getFileImportStatus(importId)
     errorMessage.value = ''
-    if (task.value.status === 'SUCCESS' || task.value.status === 'FAILED') {
-      stopPolling()
-    }
+    if (task.value.status === 'SUCCESS' || task.value.status === 'FAILED') stopPolling()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取任务状态失败'
     stopPolling()
@@ -241,100 +217,86 @@ async function fetchTask(importId: string) {
 
 function schedulePolling() {
   stopPolling()
-  if (!task.value || task.value.status === 'SUCCESS' || task.value.status === 'FAILED') {
-    return
-  }
+  if (!task.value || task.value.status === 'SUCCESS' || task.value.status === 'FAILED') return
   pollingTimer = window.setInterval(() => {
     const importId = task.value?.importId
-    if (!importId) {
-      stopPolling()
-      return
-    }
+    if (!importId) { stopPolling(); return }
     void fetchTask(importId)
   }, 2000)
 }
 
 function stopPolling() {
-  if (pollingTimer !== null) {
-    window.clearInterval(pollingTimer)
-    pollingTimer = null
-  }
+  if (pollingTimer !== null) { window.clearInterval(pollingTimer); pollingTimer = null }
 }
 
 function formatSize(size: number) {
-  if (size < 1024) {
-    return `${size} B`
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`
-  }
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
   return `${(size / (1024 * 1024)).toFixed(2)} MB`
 }
 
 function formatDate(value: string | null) {
-  if (!value) {
-    return '—'
-  }
+  if (!value) return '—'
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
-function goBack() {
-  router.push('/')
-}
-
-function goToBatchImport() {
-  router.push('/knowledge/import')
-}
+function goBack() { router.push('/') }
+function goToBatchImport() { router.push('/knowledge/import') }
 </script>
 
 <style scoped>
 .file-import-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .page-header p {
-  margin: 8px 0 0;
-  color: #64748b;
+  margin: var(--sp-1) 0 0;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .actions,
 .footer-actions,
 .status-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .helper-card,
 .upload-card,
 .status-card {
-  padding: 16px;
+  padding: var(--sp-5);
 }
 
 .helper-card h2,
 .status-card h2 {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }
 
 .helper-card ul {
   margin: 0;
   padding-left: 18px;
   display: grid;
-  gap: 6px;
-  color: #334155;
+  gap: var(--sp-2);
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .field {
@@ -344,105 +306,134 @@ function goToBatchImport() {
 
 .upload-card {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .field span {
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: #334155;
+  color: var(--clr-text-secondary);
+}
+
+.field input[type="text"],
+.field input[type="file"] {
+  font-size: var(--fs-sm);
+}
+
+.field input:not([type="file"]) {
+  width: 100%;
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  background: var(--clr-surface);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.field input:not([type="file"]):focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .file-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #0f172a;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-md);
+  background: var(--clr-bg-secondary);
+  color: var(--clr-text);
+  font-size: var(--fs-sm);
 }
 
 .status-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
-.status-header p {
-  margin: 6px 0 0;
-  color: #64748b;
+.meta-text {
+  margin: var(--sp-1) 0 0;
+  color: var(--clr-text-tertiary);
+  font-size: var(--fs-xs);
 }
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin: 16px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 0;
 }
 
 .status-grid dt {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
-  color: #64748b;
+  color: var(--clr-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .status-grid dd {
   margin: 4px 0 0;
-  color: #0f172a;
+  color: var(--clr-text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 .tag-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
 .status-chip {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .status-chip.pending {
-  background: #fef3c7;
+  background: var(--clr-warning-bg);
   color: #b45309;
 }
 
 .status-chip.processing {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--clr-primary-100);
+  color: var(--clr-primary-dark);
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .status-chip.success {
-  background: #dcfce7;
+  background: var(--clr-success-bg);
   color: #15803d;
 }
 
 .status-chip.failed {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--clr-danger-bg);
+  color: var(--clr-danger);
 }
 
 .error {
   margin: 0;
-  color: #dc2626;
-  font-size: 14px;
+  color: var(--clr-danger);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
@@ -450,7 +441,6 @@ function goToBatchImport() {
   .status-header {
     flex-direction: column;
   }
-
   .actions,
   .footer-actions,
   .status-actions {

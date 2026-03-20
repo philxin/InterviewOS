@@ -1,11 +1,11 @@
 <template>
   <section class="form-page">
     <header class="page-header">
-      <h1>{{ isEditMode ? '编辑知识点' : '新建知识点' }}</h1>
+      <h1>{{ isEditMode ? '✏️ 编辑知识点' : '➕ 新建知识点' }}</h1>
       <p>标题长度 1-200，内容必填，标签用逗号分隔。</p>
     </header>
 
-    <div v-if="loading" class="card loading-card">正在加载知识点...</div>
+    <div v-if="loading" class="card loading-card animate-pulse">正在加载知识点...</div>
 
     <form v-else class="card form-card" @submit.prevent="onSubmit">
       <label class="field">
@@ -73,9 +73,7 @@ const knowledgeId = computed(() => {
 const isEditMode = computed(() => knowledgeId.value !== null)
 
 async function loadKnowledge() {
-  if (!isEditMode.value || !knowledgeId.value) {
-    return
-  }
+  if (!isEditMode.value || !knowledgeId.value) return
   loading.value = true
   errorMessage.value = ''
   try {
@@ -91,23 +89,11 @@ async function loadKnowledge() {
 }
 
 function validateForm() {
-  if (!form.title) {
-    errorMessage.value = '标题不能为空'
-    return false
-  }
-  if (form.title.length > 200) {
-    errorMessage.value = '标题不能超过 200 个字符'
-    return false
-  }
-  if (!form.content) {
-    errorMessage.value = '内容不能为空'
-    return false
-  }
+  if (!form.title) { errorMessage.value = '标题不能为空'; return false }
+  if (form.title.length > 200) { errorMessage.value = '标题不能超过 200 个字符'; return false }
+  if (!form.content) { errorMessage.value = '内容不能为空'; return false }
   const invalidTag = normalizedTags.value.find((tag) => tag.length > 50)
-  if (invalidTag) {
-    errorMessage.value = `标签长度不能超过 50 个字符：${invalidTag}`
-    return false
-  }
+  if (invalidTag) { errorMessage.value = `标签长度不能超过 50 个字符：${invalidTag}`; return false }
   return true
 }
 
@@ -120,10 +106,7 @@ const normalizedTags = computed(() => {
 })
 
 async function onSubmit() {
-  if (!validateForm()) {
-    return
-  }
-
+  if (!validateForm()) return
   saving.value = true
   errorMessage.value = ''
   try {
@@ -148,9 +131,7 @@ async function onSubmit() {
   }
 }
 
-function goBack() {
-  router.push('/')
-}
+function goBack() { router.push('/') }
 
 onMounted(loadKnowledge)
 </script>
@@ -158,27 +139,34 @@ onMounted(loadKnowledge)
 <style scoped>
 .form-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .page-header p {
-  margin: 6px 0 0;
-  color: #64748b;
+  margin: var(--sp-1) 0 0;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .form-card {
-  padding: 16px;
+  padding: var(--sp-6);
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .loading-card {
-  padding: 16px;
+  padding: var(--sp-6);
+  text-align: center;
+  color: var(--clr-text-secondary);
 }
 
 .field {
@@ -187,50 +175,64 @@ onMounted(loadKnowledge)
 }
 
 .field span {
-  font-size: 14px;
-  color: #334155;
+  font-size: var(--fs-sm);
+  color: var(--clr-text-secondary);
   font-weight: 600;
 }
 
 .field input,
 .field textarea {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  background: var(--clr-surface);
+  font-size: var(--fs-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .field textarea {
   resize: vertical;
+  min-height: 200px;
+  line-height: 1.7;
 }
 
 .error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--clr-danger);
+  font-weight: 500;
+  font-size: var(--fs-sm);
 }
 
 .tag-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #ecfeff;
-  color: #155e75;
-  font-size: 13px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  animation: fadeIn 0.2s var(--ease-out);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 </style>

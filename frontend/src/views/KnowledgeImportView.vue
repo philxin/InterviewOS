@@ -2,13 +2,13 @@
   <section class="import-page">
     <header class="page-header">
       <div>
-        <h1>批量导入知识点</h1>
+        <h1>📥 批量导入知识点</h1>
         <p>一次录入多条知识点，适合把现有笔记快速整理进系统。</p>
       </div>
       <div class="actions">
         <button class="btn" type="button" @click="goBack">返回知识点</button>
         <button class="btn" type="button" @click="goToFileImport">文件导入</button>
-        <button class="btn" type="button" @click="addItem">+ 新增一行</button>
+        <button class="btn btn-primary" type="button" @click="addItem">➕ 新增一行</button>
       </div>
     </header>
 
@@ -16,7 +16,7 @@
       <h2>录入说明</h2>
       <ul>
         <li>标题和内容必填。</li>
-        <li>标签使用英文逗号分隔，前端会先做 `trim + lowercase + de-duplicate`。</li>
+        <li>标签使用英文逗号分隔。</li>
         <li>服务端允许部分成功；失败项会按原始序号返回。</li>
       </ul>
     </section>
@@ -113,12 +113,7 @@ const submitting = ref(false)
 const lastResult = ref<BatchImportKnowledgeResponse | null>(null)
 const nextId = ref(2)
 const items = ref<EditableItem[]>([
-  {
-    id: 1,
-    title: '',
-    content: '',
-    tagsInput: '',
-  },
+  { id: 1, title: '', content: '', tagsInput: '' },
 ])
 
 function normalizeTags(tagsInput: string) {
@@ -133,12 +128,7 @@ function normalizeTags(tagsInput: string) {
 }
 
 function addItem() {
-  items.value.push({
-    id: nextId.value,
-    title: '',
-    content: '',
-    tagsInput: '',
-  })
+  items.value.push({ id: nextId.value, title: '', content: '', tagsInput: '' })
   nextId.value += 1
 }
 
@@ -148,25 +138,12 @@ function removeItem(id: number) {
 
 function validateItems() {
   const hasValidItem = items.value.some((item) => item.title || item.content || item.tagsInput)
-  if (!hasValidItem) {
-    errorMessage.value = '至少填写一条知识点'
-    return false
-  }
-
+  if (!hasValidItem) { errorMessage.value = '至少填写一条知识点'; return false }
   for (const [index, item] of items.value.entries()) {
-    if (!item.title.trim()) {
-      errorMessage.value = `第 ${index + 1} 条标题不能为空`
-      return false
-    }
-    if (!item.content.trim()) {
-      errorMessage.value = `第 ${index + 1} 条内容不能为空`
-      return false
-    }
+    if (!item.title.trim()) { errorMessage.value = `第 ${index + 1} 条标题不能为空`; return false }
+    if (!item.content.trim()) { errorMessage.value = `第 ${index + 1} 条内容不能为空`; return false }
     const invalidTag = normalizeTags(item.tagsInput).find((tag) => tag.length > 50)
-    if (invalidTag) {
-      errorMessage.value = `第 ${index + 1} 条标签长度不能超过 50：${invalidTag}`
-      return false
-    }
+    if (invalidTag) { errorMessage.value = `第 ${index + 1} 条标签长度不能超过 50：${invalidTag}`; return false }
   }
   return true
 }
@@ -180,20 +157,13 @@ function buildPayload(): BatchImportKnowledgeItemRequest[] {
 }
 
 async function submitBatch() {
-  if (!validateItems()) {
-    return
-  }
-
+  if (!validateItems()) return
   submitting.value = true
   errorMessage.value = ''
   try {
-    const result = await knowledgeAPI.batchImport({
-      items: buildPayload(),
-    })
+    const result = await knowledgeAPI.batchImport({ items: buildPayload() })
     lastResult.value = result
-    if (result.failedCount === 0) {
-      await router.replace('/')
-    }
+    if (result.failedCount === 0) await router.replace('/')
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 422 && error.payload) {
       lastResult.value = error.payload as BatchImportKnowledgeResponse
@@ -208,83 +178,85 @@ async function submitBatch() {
   }
 }
 
-function goBack() {
-  router.push('/')
-}
-
-function goToFileImport() {
-  router.push('/knowledge/file-import')
-}
+function goBack() { router.push('/') }
+function goToFileImport() { router.push('/knowledge/file-import') }
 </script>
 
 <style scoped>
 .import-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .page-header p {
-  margin: 8px 0 0;
-  color: #64748b;
+  margin: var(--sp-1) 0 0;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
+  flex-shrink: 0;
 }
 
 .helper-card,
 .result-card {
-  padding: 16px;
+  padding: var(--sp-5);
 }
 
 .helper-card h2,
 .result-card h2 {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }
 
 .helper-card ul {
   margin: 0;
   padding-left: 18px;
   display: grid;
-  gap: 6px;
-  color: #334155;
+  gap: var(--sp-2);
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .batch-list {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .batch-card {
-  padding: 16px;
+  padding: var(--sp-5);
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 
 .card-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }
 
 .field {
@@ -293,84 +265,94 @@ function goToFileImport() {
 }
 
 .field span {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: #334155;
+  color: var(--clr-text-secondary);
 }
 
 .field input,
 .field textarea {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: #fff;
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  background: var(--clr-surface);
+  font-size: var(--fs-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .field textarea {
   resize: vertical;
+  line-height: 1.7;
 }
 
 .tag-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 12px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
 .error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--clr-danger);
+  font-weight: 500;
 }
 
 .failed-list {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
 }
 
 .failed-item {
   display: grid;
   gap: 4px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #fff1f2;
-  border: 1px solid #fecaca;
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--clr-danger-bg);
+  border: 1px solid var(--clr-danger-border);
   color: #881337;
+  font-size: var(--fs-sm);
 }
 
 .footer-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 @media (max-width: 768px) {
-  .page-header,
-  .footer-actions {
+  .page-header {
     flex-direction: column;
-    align-items: flex-start;
   }
-
   .actions {
     width: 100%;
     flex-wrap: wrap;
   }
-
-  .card-header {
+  .footer-actions {
     flex-direction: column;
-    align-items: flex-start;
+  }
+  .footer-actions .btn {
+    width: 100%;
   }
 }
 </style>

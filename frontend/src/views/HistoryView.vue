@@ -5,7 +5,7 @@
         <h1>训练历史</h1>
         <p>查看每次训练的结果摘要，并按知识点筛选。</p>
       </div>
-      <button class="btn" type="button" @click="refresh">刷新</button>
+      <button class="btn" type="button" @click="refresh">🔄 刷新</button>
     </header>
 
     <section class="card filter-card">
@@ -36,29 +36,29 @@
         <header class="history-header">
           <div>
             <h2>{{ item.knowledgeTitle }}</h2>
-            <p class="meta">
+            <p class="meta-text">
               {{ formatDateTime(item.startedAt) }}
               <span v-if="item.completedAt"> · 完成于 {{ formatDateTime(item.completedAt) }}</span>
             </p>
           </div>
           <div class="session-side">
-            <span v-if="item.band" class="band-pill">{{ item.band.label }}</span>
-            <strong class="score-pill">{{ item.sessionScore }}</strong>
+            <span v-if="item.band" class="pill pill-blue">{{ item.band.label }}</span>
+            <strong class="pill pill-dark">{{ item.sessionScore }}</strong>
           </div>
         </header>
 
         <p class="summary">{{ item.majorIssueSummary || '暂无问题摘要。' }}</p>
         <div class="card-footer">
-          <span class="meta">已答 {{ item.answeredCount }} / {{ item.questionCount }} 题</span>
+          <span class="meta-text">已答 {{ item.answeredCount }} / {{ item.questionCount }} 题</span>
           <button class="btn btn-primary" type="button" @click="goResult(item.sessionId)">查看详情</button>
         </div>
       </article>
     </div>
 
     <footer v-if="total > 0" class="pagination">
-      <button class="btn" :disabled="page <= 1 || loading" type="button" @click="goPrev">上一页</button>
-      <span>第 {{ page }} 页 · 共 {{ total }} 条</span>
-      <button class="btn" :disabled="!hasNext || loading" type="button" @click="goNext">下一页</button>
+      <button class="btn" :disabled="page <= 1 || loading" type="button" @click="goPrev">← 上一页</button>
+      <span class="page-info">第 {{ page }} 页 · 共 {{ total }} 条</span>
+      <button class="btn" :disabled="!hasNext || loading" type="button" @click="goNext">下一页 →</button>
     </footer>
   </section>
 </template>
@@ -112,17 +112,13 @@ function onFilterChange() {
 }
 
 function goPrev() {
-  if (page.value <= 1) {
-    return
-  }
+  if (page.value <= 1) return
   page.value -= 1
   refresh()
 }
 
 function goNext() {
-  if (!hasNext.value) {
-    return
-  }
+  if (!hasNext.value) return
   page.value += 1
   refresh()
 }
@@ -137,30 +133,33 @@ onMounted(refresh)
 <style scoped>
 .history-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .page-header p {
-  margin: 6px 0 0;
-  color: #64748b;
+  margin: var(--sp-1) 0 0;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .filter-card {
-  padding: 14px 16px;
+  padding: var(--sp-4) var(--sp-5);
   display: flex;
-  gap: 14px;
+  gap: var(--sp-4);
   align-items: end;
 }
 
@@ -170,102 +169,138 @@ label {
 }
 
 label span {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: #475569;
+  color: var(--clr-text-secondary);
 }
 
 select {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
   min-width: 200px;
+  background: var(--clr-surface);
+  font-size: var(--fs-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .history-list {
   display: grid;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .history-card {
-  padding: 16px;
+  padding: var(--sp-5);
+  border-left: 3px solid transparent;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.history-card:hover {
+  border-left-color: var(--clr-primary);
+  transform: translateX(2px);
 }
 
 .history-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .history-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }
 
-.meta {
-  color: #64748b;
-  font-size: 13px;
+.meta-text {
+  color: var(--clr-text-tertiary);
+  font-size: var(--fs-xs);
+  margin: var(--sp-1) 0 0;
 }
 
 .session-side {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
+  flex-shrink: 0;
 }
 
-.band-pill,
-.score-pill {
+.pill {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
-.band-pill {
-  background: #eff6ff;
-  color: #1d4ed8;
+.pill-blue {
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
 }
 
-.score-pill {
-  background: #0f172a;
-  color: #fff;
+.pill-dark {
+  background: var(--clr-text);
+  color: var(--clr-text-inverse);
 }
 
 .summary {
-  margin: 14px 0 0;
-  color: #334155;
+  margin: var(--sp-3) 0 0;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
 }
 
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-top: 14px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
 }
 
 .pagination {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-4);
+}
+
+.page-info {
+  font-size: var(--fs-sm);
+  color: var(--clr-text-secondary);
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
-  .page-header,
-  .filter-card,
-  .history-header,
-  .card-footer,
-  .pagination {
+  .page-header {
+    flex-direction: column;
+  }
+  .filter-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  select {
+    min-width: 0;
+    width: 100%;
+  }
+  .history-header {
+    flex-direction: column;
+  }
+  .card-footer {
     flex-direction: column;
     align-items: flex-start;
   }
-
-  select {
-    min-width: 220px;
+  .card-footer .btn {
+    width: 100%;
   }
 }
 </style>

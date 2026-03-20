@@ -2,19 +2,19 @@
   <section class="result-page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">训练结果</p>
+        <div class="header-badge">训练结果</div>
         <h1>{{ detail?.knowledgeTitle || '结果详情' }}</h1>
       </div>
       <div class="header-actions">
-        <button class="btn" type="button" @click="goHistory">历史</button>
-        <button class="btn" type="button" @click="goHome">知识点</button>
+        <button class="btn" type="button" @click="goHistory">📊 历史</button>
+        <button class="btn" type="button" @click="goHome">📋 知识点</button>
         <button
           v-if="detail?.knowledgeId"
           class="btn btn-primary"
           type="button"
           @click="retryTraining(detail.knowledgeId)"
         >
-          再训练一次
+          🔄 再训练一次
         </button>
       </div>
     </header>
@@ -23,7 +23,10 @@
     <AppStateCard v-else-if="errorMessage" variant="error" :message="errorMessage" />
 
     <div v-else-if="detail && answeredQuestions.length > 0" class="result-grid">
-      <div v-if="refreshing" class="sync-banner">结果已展示，正在同步服务端最终详情...</div>
+      <div v-if="refreshing" class="sync-banner animate-pulse">
+        ⏳ 结果已展示，正在同步服务端最终详情...
+      </div>
+
       <section class="top-grid">
         <TrainingFeedbackBand v-if="sessionBand" :band="sessionBand" />
         <div v-else class="card summary-card">
@@ -34,13 +37,13 @@
           <span class="summary-label">主要问题</span>
           <h2>{{ detail.majorIssueSummary || '暂无主要问题摘要' }}</h2>
           <div class="summary-meta">
-            <span>会话得分 {{ summaryScore }}</span>
-            <span>已完成 {{ detail.answeredCount }} / {{ detail.questionCount }} 题</span>
+            <span class="pill pill-dark">会话得分 {{ summaryScore }}</span>
+            <span class="meta-text">已完成 {{ detail.answeredCount }} / {{ detail.questionCount }} 题</span>
           </div>
         </div>
       </section>
 
-      <section v-for="question in answeredQuestions" :key="question.questionId" class="card detail-card question-card">
+      <section v-for="question in answeredQuestions" :key="question.questionId" class="card question-card animate-slideUp">
         <div class="question-head">
           <h2>
             第 {{ question.orderNo }} 题 ·
@@ -55,12 +58,12 @@
 
         <div class="feedback-grid">
           <section class="feedback-block">
-            <h3>主要问题</h3>
+            <h3>🔍 主要问题</h3>
             <p>{{ question.feedback.majorIssue || '暂无主要问题。' }}</p>
           </section>
 
           <section class="feedback-block">
-            <h3>缺失点</h3>
+            <h3>📋 缺失点</h3>
             <ul v-if="question.feedback.missingPoints.length > 0">
               <li v-for="(item, index) in question.feedback.missingPoints" :key="`missing-${question.questionId}-${index}`">
                 {{ item }}
@@ -70,7 +73,7 @@
           </section>
 
           <section class="feedback-block">
-            <h3>更好回答思路</h3>
+            <h3>💡 更好回答思路</h3>
             <ul v-if="question.feedback.betterAnswerApproach.length > 0">
               <li
                 v-for="(item, index) in question.feedback.betterAnswerApproach"
@@ -83,12 +86,12 @@
           </section>
 
           <section class="feedback-block">
-            <h3>自然参考表达</h3>
+            <h3>✍️ 自然参考表达</h3>
             <p>{{ question.feedback.naturalExampleAnswer || '暂无参考表达。' }}</p>
           </section>
 
           <section class="feedback-block">
-            <h3>薄弱标签</h3>
+            <h3>🏷️ 薄弱标签</h3>
             <div v-if="question.feedback.weakTags.length > 0" class="tag-list">
               <span v-for="tag in question.feedback.weakTags" :key="`${question.questionId}-${tag}`" class="tag-chip">
                 #{{ tag }}
@@ -98,8 +101,12 @@
           </section>
 
           <section class="feedback-block">
-            <h3>掌握度变化</h3>
-            <p>{{ question.feedback.masteryBefore }} → {{ question.feedback.masteryAfter }}</p>
+            <h3>📈 掌握度变化</h3>
+            <div class="mastery-change">
+              <span class="mastery-from">{{ question.feedback.masteryBefore }}%</span>
+              <span class="mastery-arrow">→</span>
+              <span class="mastery-to">{{ question.feedback.masteryAfter }}%</span>
+            </div>
           </section>
         </div>
       </section>
@@ -215,17 +222,9 @@ async function loadDetail() {
   await fetchDetail(true)
 }
 
-function goHome() {
-  router.push('/')
-}
-
-function goHistory() {
-  router.push('/history')
-}
-
-function retryTraining(knowledgeId: number) {
-  router.push(`/training/${knowledgeId}`)
-}
+function goHome() { router.push('/') }
+function goHistory() { router.push('/history') }
+function retryTraining(knowledgeId: number) { router.push(`/training/${knowledgeId}`) }
 
 onMounted(loadDetail)
 </script>
@@ -233,200 +232,255 @@ onMounted(loadDetail)
 <style scoped>
 .result-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #7c2d12;
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--clr-primary);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
 }
 
 .result-grid {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .sync-banner {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #ecfeff;
-  border: 1px solid #67e8f9;
-  color: #155e75;
-  font-size: 14px;
-  line-height: 1.6;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: var(--clr-accent-dark);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 .top-grid {
   display: grid;
   grid-template-columns: minmax(260px, 360px) 1fr;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
-.summary-card,
-.detail-card {
-  padding: 18px;
+.summary-card {
+  padding: var(--sp-5);
 }
 
 .summary-label {
   display: inline-flex;
-  margin-bottom: 10px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #475569;
+  color: var(--clr-text-secondary);
   font-weight: 700;
 }
 
-.summary-card h2,
-.detail-card h2 {
+.summary-card h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--fs-xl);
   line-height: 1.4;
+  font-weight: 700;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.pill-dark {
+  background: var(--clr-text);
+  color: var(--clr-text-inverse);
+}
+
+.summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  align-items: center;
+}
+
+.question-card {
+  padding: var(--sp-5);
 }
 
 .question-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 
 .question-head h2 {
-  font-size: 20px;
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
 }
 
 .score-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: #ecfeff;
-  border: 1px solid #67e8f9;
-  color: #0e7490;
-  font-size: 12px;
+  min-height: 30px;
+  border-radius: var(--radius-full);
+  padding: 4px 14px;
+  background: linear-gradient(135deg, var(--clr-primary-50), rgba(6, 182, 212, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
-.summary-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
-  color: #475569;
-  font-size: 14px;
-}
-
 .question-title {
-  margin: 16px 0 0;
-  font-size: 18px;
-  color: #1f2937;
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-lg);
+  color: var(--clr-text);
   line-height: 1.7;
 }
 
 .answer-label {
-  margin: 18px 0 6px;
-  font-size: 13px;
+  margin: var(--sp-5) 0 var(--sp-1);
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: #64748b;
+  color: var(--clr-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .answer-content {
   margin: 0;
-  color: #334155;
+  color: var(--clr-text-secondary);
   white-space: pre-wrap;
   line-height: 1.8;
+  font-size: var(--fs-sm);
+  padding: var(--sp-4);
+  background: var(--clr-bg-secondary);
+  border-radius: var(--radius-md);
 }
 
 .feedback-grid {
-  margin-top: 18px;
+  margin-top: var(--sp-5);
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
 }
 
 .feedback-block {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
-  background: #f8fafc;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  background: var(--clr-surface);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.feedback-block:hover {
+  box-shadow: var(--shadow-sm);
 }
 
 .feedback-block h3 {
   margin: 0;
-  font-size: 14px;
-  color: #334155;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--clr-text);
 }
 
 .feedback-block p {
-  margin: 10px 0 0;
-  color: #334155;
+  margin: var(--sp-2) 0 0;
+  color: var(--clr-text-secondary);
   line-height: 1.7;
   white-space: pre-wrap;
+  font-size: var(--fs-sm);
 }
 
 .feedback-block ul {
-  margin: 10px 0 0;
+  margin: var(--sp-2) 0 0;
   padding-left: 18px;
   display: grid;
-  gap: 8px;
-  color: #334155;
-}
-
-.detail-card ul {
-  margin: 16px 0 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 8px;
-  color: #334155;
+  gap: var(--sp-2);
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 12px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
+.mastery-change {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+}
+
+.mastery-from { color: var(--clr-text-tertiary); }
+.mastery-arrow { color: var(--clr-text-tertiary); font-size: var(--fs-xl); }
+.mastery-to { color: var(--clr-primary); }
+
+.meta-text {
+  color: var(--clr-text-tertiary);
+  font-size: var(--fs-sm);
+}
+
 @media (max-width: 900px) {
-  .page-header,
+  .page-header {
+    flex-direction: column;
+  }
   .top-grid {
     grid-template-columns: 1fr;
-    flex-direction: column;
-    align-items: flex-start;
+  }
+  .feedback-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

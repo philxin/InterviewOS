@@ -1,5 +1,8 @@
 <template>
-  <span class="mastery-badge" :class="levelClass">{{ levelText }} · {{ mastery }}%</span>
+  <span class="mastery-badge" :class="levelClass">
+    <span class="mastery-dot"></span>
+    {{ levelText }} · {{ mastery }}%
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -28,30 +31,44 @@ const levelClass = computed(() => {
 .mastery-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.mastery-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .expert {
   color: #166534;
-  background: #dcfce7;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  border: 1px solid #86efac;
 }
 
 .proficient {
-  color: #155e75;
-  background: #cffafe;
+  color: #0e7490;
+  background: linear-gradient(135deg, #cffafe, #a5f3fc);
+  border: 1px solid #67e8f9;
 }
 
 .competent {
   color: #92400e;
-  background: #fef3c7;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #fcd34d;
 }
 
 .beginner {
-  color: #1e3a8a;
-  background: #dbeafe;
+  color: #1e40af;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  border: 1px solid #93c5fd;
 }
 </style>

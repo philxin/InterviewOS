@@ -1,10 +1,11 @@
 <template>
   <section class="starter-page">
     <div v-if="loading" class="card starter-card">
+      <div class="spinner"></div>
       <h1>正在创建训练会话...</h1>
       <p>{{ loadingMessage }}</p>
       <div class="progress-meta">
-        <span class="status-chip">LLM 生成中</span>
+        <span class="status-chip">⚡ LLM 生成中</span>
         <span>已等待 {{ elapsedSeconds }} 秒</span>
       </div>
     </div>
@@ -114,37 +115,58 @@ onBeforeUnmount(stopLoadingTimer)
 
 .starter-card {
   width: min(640px, 100%);
-  padding: 28px;
+  padding: var(--sp-8);
   display: grid;
-  gap: 10px;
+  gap: var(--sp-3);
+  justify-items: center;
+  text-align: center;
 }
 
-.starter-card h1,
+.starter-card h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+}
+
 .starter-card p {
   margin: 0;
+  color: var(--clr-text-secondary);
+  max-width: 48ch;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--clr-border);
+  border-top-color: var(--clr-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: var(--sp-2);
 }
 
 .progress-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--sp-3);
   align-items: center;
-  color: #475569;
-  font-size: 14px;
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .status-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: #ecfeff;
-  color: #155e75;
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(99, 102, 241, 0.1));
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: var(--clr-accent-dark);
   font-weight: 700;
+  font-size: var(--fs-xs);
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 </style>

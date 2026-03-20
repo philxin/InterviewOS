@@ -2,13 +2,18 @@
   <section class="training-page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">训练进行中</p>
+        <div class="header-badge">训练进行中</div>
         <h1>{{ session?.knowledgeTitle || '训练会话' }}</h1>
       </div>
       <div v-if="session" class="session-meta">
-        <span class="pill">{{ questionTypeLabelMap[session.questionType] }}</span>
-        <span class="pill">{{ difficultyLabelMap[session.difficulty] }}</span>
-        <span class="sequence">第 {{ session.sequence.current }} / {{ session.sequence.total }} 题</span>
+        <span class="pill pill-blue">{{ questionTypeLabelMap[session.questionType] }}</span>
+        <span class="pill pill-blue">{{ difficultyLabelMap[session.difficulty] }}</span>
+        <span class="progress-indicator">
+          <span class="progress-bar">
+            <span class="progress-fill" :style="{ width: `${(session.sequence.current / session.sequence.total) * 100}%` }"></span>
+          </span>
+          <span class="progress-text">{{ session.sequence.current }} / {{ session.sequence.total }}</span>
+        </span>
       </div>
     </header>
 
@@ -18,13 +23,13 @@
     <div v-else-if="session" class="training-layout">
       <section class="card question-card">
         <div class="card-head">
-          <h2>问题</h2>
+          <h2>📝 问题</h2>
           <div class="hint-actions">
-            <span v-if="session.hintAvailable" class="hint-badge">提示能力已开启</span>
-            <span v-else-if="hint" class="hint-badge used">提示已获取</span>
+            <span v-if="session.hintAvailable" class="hint-badge available">💡 提示可用</span>
+            <span v-else-if="hint" class="hint-badge used">已获取提示</span>
             <button
               v-if="session.hintAvailable"
-              class="btn btn-secondary"
+              class="btn btn-hint"
               type="button"
               :disabled="hintLoading || submitting"
               @click="loadHint"
@@ -34,16 +39,16 @@
           </div>
         </div>
         <p class="question-text">{{ session.question }}</p>
-        <div v-if="hint" class="hint-panel">
-          <span class="hint-label">答题提示</span>
+        <div v-if="hint" class="hint-panel animate-slideUp">
+          <span class="hint-label">💡 答题提示</span>
           <p>{{ hint }}</p>
         </div>
       </section>
 
       <section class="card answer-card">
         <div class="card-head">
-          <h2>你的回答</h2>
-          <span class="helper">{{ answer.length }} 字</span>
+          <h2>✍️ 你的回答</h2>
+          <span class="char-count" :class="{ warn: answer.length > 2000 }">{{ answer.length }} 字</span>
         </div>
         <textarea
           v-model.trim="answer"
@@ -56,8 +61,8 @@
             {{ submitting ? '提交中...' : isLastQuestion ? '提交并查看反馈' : '提交并进入下一题' }}
           </button>
         </div>
-        <p v-if="submitting" class="submit-note">
-          {{ isLastQuestion ? '系统正在评分并整理最终反馈。' : '系统正在评估本题并生成下一题。' }}
+        <p v-if="submitting" class="submit-note animate-pulse">
+          {{ isLastQuestion ? '系统正在评分并整理最终反馈...' : '系统正在评估本题并生成下一题...' }}
         </p>
       </section>
     </div>
@@ -254,120 +259,181 @@ onMounted(async () => {
 <style scoped>
 .training-page {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #0f766e;
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: var(--clr-success);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .session-meta {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
+  align-items: center;
 }
 
-.pill,
-.sequence,
-.hint-badge {
+.pill {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
-.pill,
-.sequence {
-  background: #eff6ff;
-  color: #1d4ed8;
+.pill-blue {
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-dark);
 }
 
-.hint-badge {
-  background: #fef3c7;
-  color: #92400e;
+.progress-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
 }
 
-.hint-badge.used {
-  background: #e2e8f0;
-  color: #334155;
+.progress-bar {
+  width: 80px;
+  height: 6px;
+  background: var(--clr-bg-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--clr-primary), var(--clr-accent));
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.progress-text {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--clr-text-secondary);
 }
 
 .training-layout {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
 .question-card,
 .answer-card {
-  padding: 18px;
+  padding: var(--sp-5);
 }
 
 .card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .hint-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
 }
 
 .card-head h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--fs-xl);
+  font-weight: 700;
 }
 
-.helper {
-  color: #64748b;
-  font-size: 13px;
+.char-count {
+  font-size: var(--fs-sm);
+  color: var(--clr-text-tertiary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.char-count.warn {
+  color: var(--clr-warning);
+}
+
+.hint-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.hint-badge.available {
+  background: var(--clr-warning-bg);
+  color: #92400e;
+  border: 1px solid var(--clr-warning-border);
+}
+
+.hint-badge.used {
+  background: var(--clr-bg-secondary);
+  color: var(--clr-text-secondary);
+}
+
+.btn-hint {
+  border-color: #fdba74;
+  color: #9a3412;
+  background: #fff7ed;
+}
+
+.btn-hint:hover {
+  background: #fef3c7;
 }
 
 .question-text {
-  margin: 16px 0 0;
-  font-size: 18px;
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-lg);
   line-height: 1.8;
-  color: #1f2937;
+  color: var(--clr-text);
   white-space: pre-wrap;
 }
 
 .hint-panel {
-  margin-top: 16px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: #fff7ed;
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #fff7ed, #fffbeb);
   border: 1px solid #fdba74;
   display: grid;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .hint-label {
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #9a3412;
   font-weight: 700;
@@ -380,43 +446,56 @@ onMounted(async () => {
   white-space: pre-wrap;
 }
 
-.btn-secondary {
-  border-color: #fdba74;
-  color: #9a3412;
-  background: #fff7ed;
-}
-
 textarea {
   width: 100%;
-  margin-top: 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
-  padding: 14px;
+  margin-top: var(--sp-4);
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
   resize: vertical;
   min-height: 280px;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .footer-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
 }
 
 .submit-note {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: #64748b;
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--clr-text-tertiary);
   line-height: 1.6;
+  text-align: right;
 }
 
 @media (max-width: 768px) {
-  .page-header,
-  .card-head,
-  .footer-actions,
-  .hint-actions {
+  .page-header {
+    flex-direction: column;
+  }
+  .session-meta {
+    justify-content: flex-start;
+  }
+  .card-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .footer-actions {
+    flex-direction: column;
+  }
+  .footer-actions .btn {
+    width: 100%;
   }
 }
 </style>
