@@ -26,13 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenService jwtTokenService;
     private final AppUserRepository appUserRepository;
+    private final LoginSessionService loginSessionService;
 
     public JwtAuthenticationFilter(
         JwtTokenService jwtTokenService,
-        AppUserRepository appUserRepository
+        AppUserRepository appUserRepository,
+        LoginSessionService loginSessionService
     ) {
         this.jwtTokenService = jwtTokenService;
         this.appUserRepository = appUserRepository;
+        this.loginSessionService = loginSessionService;
     }
 
     @Override
@@ -68,7 +71,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Long userId = jwtTokenService.parseUserId(token);
-            return appUserRepository.findById(userId).map(AuthenticatedUser::fromEntity);
+            if (!loginSessionService.refreshSession(token, userId)) {
+                log.debug("Ignore JWT token without active login session");
+                return java.util.Optional.empty();
+            }
+
+            java.util.Optional<AppUser> user = appUserRepository.findById(userId);
+            if (user.isEmpty()) {
+                loginSessionService.deleteSession(token);
+                return java.util.Optional.empty();
+            }
+            return user.map(AuthenticatedUser::fromEntity);
         } catch (JwtException | IllegalArgumentException exception) {
             log.debug("Ignore invalid JWT token: type={}", exception.getClass().getSimpleName());
             return java.util.Optional.empty();

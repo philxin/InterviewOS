@@ -18,8 +18,8 @@
             <span>登录成功后自动恢复到原本想访问的页面</span>
           </li>
           <li>
-            <span class="point-icon">🎯</span>
-            <span>首次注册后会进入岗位方向初始化</span>
+            <span class="point-icon">✉️</span>
+            <span>账号采用邀请注册制，请联系已注册用户获取邀请链接</span>
           </li>
         </ul>
       </div>
@@ -27,40 +27,16 @@
 
     <div class="auth-card-wrapper">
       <div class="auth-card">
-        <div class="mode-switch">
-          <button
-            class="mode-btn"
-            :class="{ active: mode === 'login' }"
-            type="button"
-            @click="switchMode('login')"
-          >
-            登录
-          </button>
-          <button
-            class="mode-btn"
-            :class="{ active: mode === 'register' }"
-            type="button"
-            @click="switchMode('register')"
-          >
-            注册
-          </button>
-          <div class="mode-slider" :class="{ right: mode === 'register' }"></div>
+        <div class="auth-heading">
+          <h2>登录账号</h2>
+          <p>公开注册已关闭，收到邀请链接后再完成注册。</p>
         </div>
 
         <form class="auth-form" @submit.prevent="submit">
-          <label v-if="mode === 'register'" class="field animate-slideUp">
-            <span>昵称</span>
-            <input
-              v-model.trim="registerForm.displayName"
-              maxlength="50"
-              placeholder="例如：philxin"
-            />
-          </label>
-
           <label class="field">
             <span>邮箱</span>
             <input
-              v-model.trim="currentForm.email"
+              v-model.trim="loginForm.email"
               autocomplete="email"
               placeholder="name@example.com"
               type="email"
@@ -70,21 +46,18 @@
           <label class="field">
             <span>密码</span>
             <input
-              v-model="currentForm.password"
-              :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+              v-model="loginForm.password"
+              autocomplete="current-password"
               placeholder="请输入密码"
               type="password"
             />
           </label>
 
-          <p v-if="mode === 'register'" class="helper">
-            密码需包含大小写字母、数字和特殊字符，长度 8-64。
-          </p>
-
           <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+          <p class="helper">如果你还没有账号，请联系团队内已注册用户发起邀请。</p>
 
           <button class="btn btn-primary submit-btn" :disabled="submitting" type="submit">
-            {{ submitting ? '提交中...' : mode === 'login' ? '登录并继续' : '注册并继续' }}
+            {{ submitting ? '提交中...' : '登录并继续' }}
           </button>
         </form>
       </div>
@@ -93,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -101,7 +74,6 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const mode = ref<'login' | 'register'>('login')
 const submitting = ref(false)
 const errorMessage = ref('')
 
@@ -110,30 +82,13 @@ const loginForm = reactive({
   password: '',
 })
 
-const registerForm = reactive({
-  displayName: '',
-  email: '',
-  password: '',
-})
-
-const currentForm = computed(() => (mode.value === 'login' ? loginForm : registerForm))
-
-function switchMode(nextMode: 'login' | 'register') {
-  mode.value = nextMode
-  errorMessage.value = ''
-}
-
 function validate() {
-  if (!currentForm.value.email) {
+  if (!loginForm.email) {
     errorMessage.value = '邮箱不能为空'
     return false
   }
-  if (!currentForm.value.password) {
+  if (!loginForm.password) {
     errorMessage.value = '密码不能为空'
-    return false
-  }
-  if (mode.value === 'register' && !registerForm.displayName) {
-    errorMessage.value = '昵称不能为空'
     return false
   }
   return true
@@ -153,11 +108,7 @@ async function submit() {
   errorMessage.value = ''
 
   try {
-    if (mode.value === 'login') {
-      await authStore.login(loginForm)
-    } else {
-      await authStore.register(registerForm)
-    }
+    await authStore.login(loginForm)
 
     if (authStore.needsOnboarding) {
       await router.replace({

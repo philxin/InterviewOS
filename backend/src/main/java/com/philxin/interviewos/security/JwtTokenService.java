@@ -8,11 +8,12 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Service;
 
 /**
- * 统一负责 JWT 生成与解析。
+ * 统一负责 JWT 签名与解析，登录时效由 Redis 会话控制。
  */
 @Service
 public class JwtTokenService {
@@ -28,12 +29,11 @@ public class JwtTokenService {
 
     public String generateToken(AppUser user) {
         Instant now = Instant.now();
-        Instant expiresAt = now.plus(jwtProperties.getExpiresIn());
         return Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(String.valueOf(user.getId()))
             .issuer(jwtProperties.getIssuer())
             .issuedAt(Date.from(now))
-            .expiration(Date.from(expiresAt))
             .claim("email", user.getEmail())
             .claim("displayName", user.getDisplayName())
             .claim("targetRole", user.getTargetRole() == null ? null : user.getTargetRole().name())
@@ -44,10 +44,6 @@ public class JwtTokenService {
     public Long parseUserId(String token) {
         Claims claims = Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
         return Long.parseLong(claims.getSubject());
-    }
-
-    public long getExpiresInSeconds() {
-        return jwtProperties.getExpiresIn().toSeconds();
     }
 
     private SecretKey buildSecretKey(String secret) {

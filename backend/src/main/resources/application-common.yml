@@ -44,8 +44,13 @@ app:
   security:
     jwt:
       secret: ${JWT_SECRET:}
-      expires-in: ${JWT_EXPIRES_IN:PT2H}
       issuer: ${JWT_ISSUER:InterviewOS}
+    login-session:
+      ttl: ${LOGIN_SESSION_TTL:${JWT_EXPIRES_IN:P7D}}
+      key-prefix: "${LOGIN_SESSION_KEY_PREFIX:auth:session:}"
+    registration-invitation:
+      ttl: ${REGISTRATION_INVITATION_TTL:P7D}
+      registration-path-prefix: ${REGISTRATION_INVITATION_PATH_PREFIX:/invite/}
   datasource:
     primary: ${APP_PRIMARY_DATASOURCE:postgresql}
     pool:

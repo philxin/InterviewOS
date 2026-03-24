@@ -17,6 +17,7 @@ import com.philxin.interviewos.entity.KnowledgeStatus;
 import com.philxin.interviewos.repository.AppUserRepository;
 import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.security.JwtTokenService;
+import com.philxin.interviewos.security.LoginSessionService;
 import com.philxin.interviewos.security.RestAccessDeniedHandler;
 import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
 import com.philxin.interviewos.service.KnowledgeFileImportService;
@@ -69,10 +70,14 @@ class RequestContextLoggingFilterTest {
     @MockBean
     private AppUserRepository appUserRepository;
 
+    @MockBean
+    private LoginSessionService loginSessionService;
+
     @Test
     void generatesRequestIdHeaderWhenClientDoesNotProvideOne() throws Exception {
         when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
+        when(loginSessionService.refreshSession("valid-token", 1L)).thenReturn(true);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
 
         mockMvc.perform(get("/knowledge").header(HttpHeaders.AUTHORIZATION, "Bearer valid-token"))
@@ -84,6 +89,7 @@ class RequestContextLoggingFilterTest {
     void preservesClientProvidedRequestId() throws Exception {
         when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
+        when(loginSessionService.refreshSession("valid-token", 1L)).thenReturn(true);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
 
         mockMvc.perform(

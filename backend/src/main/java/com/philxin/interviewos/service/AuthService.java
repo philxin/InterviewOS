@@ -4,9 +4,11 @@ import com.philxin.interviewos.common.BusinessException;
 import com.philxin.interviewos.controller.dto.auth.AuthResponse;
 import com.philxin.interviewos.controller.dto.auth.AuthUserResponse;
 import com.philxin.interviewos.entity.AppUser;
+import com.philxin.interviewos.entity.RegistrationInvitation;
 import com.philxin.interviewos.repository.AppUserRepository;
 import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.security.JwtTokenService;
+import com.philxin.interviewos.security.LoginSessionService;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,23 +23,33 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final LoginSessionService loginSessionService;
+    private final RegistrationInvitationService registrationInvitationService;
 
     public AuthService(
         AppUserRepository appUserRepository,
         PasswordEncoder passwordEncoder,
-        JwtTokenService jwtTokenService
+        JwtTokenService jwtTokenService,
+        LoginSessionService loginSessionService,
+        RegistrationInvitationService registrationInvitationService
     ) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.loginSessionService = loginSessionService;
+        this.registrationInvitationService = registrationInvitationService;
     }
 
     @Transactional
-    public AuthResponse register(String email, String password, String displayName) {
+    public AuthResponse register(String invitationCode, String email, String password, String displayName) {
         String normalizedEmail = normalizeEmail(email);
         if (appUserRepository.existsByEmail(normalizedEmail)) {
             throw new BusinessException(HttpStatus.CONFLICT, "Email already registered");
         }
+        RegistrationInvitation invitation = registrationInvitationService.lockInvitationForRegistration(
+            invitationCode,
+            normalizedEmail
+        );
 
         AppUser user = new AppUser();
         user.setEmail(normalizedEmail);
@@ -45,6 +57,7 @@ public class AuthService {
         user.setDisplayName(normalizeText(displayName));
 
         AppUser savedUser = appUserRepository.save(user);
+        registrationInvitationService.markAsUsed(invitation, savedUser);
         return buildAuthResponse(savedUser);
     }
 
@@ -67,10 +80,13 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(AppUser user) {
+        String token = jwtTokenService.generateToken(user);
+        loginSessionService.cacheSession(token, user.getId());
+
         AuthResponse response = new AuthResponse();
-        response.setToken(jwtTokenService.generateToken(user));
+        response.setToken(token);
         response.setTokenType(JwtTokenService.TOKEN_TYPE);
-        response.setExpiresIn(jwtTokenService.getExpiresInSeconds());
+        response.setExpiresIn(loginSessionService.getExpiresInSeconds());
         response.setUser(AuthUserResponse.fromEntity(user));
         return response;
     }

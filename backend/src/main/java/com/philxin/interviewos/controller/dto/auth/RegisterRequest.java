@@ -12,6 +12,9 @@ public class RegisterRequest {
     private static final String PASSWORD_PATTERN =
         "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,64}$";
 
+    @NotBlank(message = "invitationCode must not be blank")
+    private String invitationCode;
+
     @NotBlank(message = "email must not be blank")
     @Email(message = "email must be a valid email address")
     @Size(max = 255, message = "email length must be <= 255")
@@ -50,5 +53,13 @@ public class RegisterRequest {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getInvitationCode() {
+        return invitationCode;
+    }
+
+    public void setInvitationCode(String invitationCode) {
+        this.invitationCode = invitationCode;
     }
 }

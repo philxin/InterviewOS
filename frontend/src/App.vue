@@ -7,7 +7,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const showNav = computed(() => route.path !== '/login')
+const showNav = computed(() => !route.matched.some((record) => record.meta.guestOnly))
 const mobileMenuOpen = ref(false)
 
 function toggleMobileMenu() {
@@ -67,6 +67,9 @@ async function logout() {
           </router-link>
           <router-link to="/history" @click="closeMobileMenu">
             <span class="nav-icon">📊</span> 历史
+          </router-link>
+          <router-link to="/invitations" @click="closeMobileMenu">
+            <span class="nav-icon">✉️</span> 邀请
           </router-link>
         </div>
 

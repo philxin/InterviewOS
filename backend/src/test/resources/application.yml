@@ -13,8 +13,10 @@ app:
   security:
     jwt:
       secret: 01234567890123456789012345678901
-      expires-in: PT2H
       issuer: InterviewOS-test
+    login-session:
+      ttl: P7D
+      key-prefix: "auth:test:session:"
   datasource:
     primary: postgresql
     mysql:

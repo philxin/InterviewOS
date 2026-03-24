@@ -6,6 +6,7 @@ import type {
   BatchImportKnowledgeResponse,
   DashboardReviewReminder,
   CreateKnowledgeRequest,
+  CreateRegistrationInvitationRequest,
   DashboardOverview,
   PagedResult,
   EvaluationResult,
@@ -13,7 +14,9 @@ import type {
   KnowledgeFileImportResponse,
   KnowledgeFileImportStartResponse,
   LoginRequest,
+  PublicRegistrationInvitation,
   RegisterRequest,
+  RegistrationInvitation,
   StartTrainingSessionRequest,
   SubmitSessionAnswerRequest,
   TrainingRecommendation,
@@ -34,7 +37,14 @@ import type {
 export const authAPI = {
   register: (data: RegisterRequest) => apiClient.post<AuthResponse>('/auth/register', data),
   login: (data: LoginRequest) => apiClient.post<AuthResponse>('/auth/login', data),
+  getInvitation: (invitationCode: string) =>
+    apiClient.get<PublicRegistrationInvitation>(`/auth/invitations/${invitationCode}`),
   me: () => apiClient.get<AuthUser>('/auth/me'),
+}
+
+export const invitationAPI = {
+  create: (data: CreateRegistrationInvitationRequest) =>
+    apiClient.post<RegistrationInvitation>('/invitations', data),
 }
 
 export const userAPI = {

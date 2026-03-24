@@ -1,7 +1,8 @@
 package com.philxin.interviewos.config;
 
-import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,6 +21,7 @@ import com.philxin.interviewos.service.AuthService;
 import com.philxin.interviewos.service.KnowledgeFileImportService;
 import com.philxin.interviewos.service.KnowledgeImportService;
 import com.philxin.interviewos.service.KnowledgeService;
+import com.philxin.interviewos.service.RegistrationInvitationService;
 import com.philxin.interviewos.security.AuthenticatedUser;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +37,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import com.philxin.interviewos.repository.AppUserRepository;
 import com.philxin.interviewos.security.JwtTokenService;
+import com.philxin.interviewos.security.LoginSessionService;
 import com.philxin.interviewos.security.RestAccessDeniedHandler;
 import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
 
@@ -72,10 +75,16 @@ class SecurityConfigTest {
     private AuthService authService;
 
     @MockBean
+    private RegistrationInvitationService registrationInvitationService;
+
+    @MockBean
     private JwtTokenService jwtTokenService;
 
     @MockBean
     private AppUserRepository appUserRepository;
+
+    @MockBean
+    private LoginSessionService loginSessionService;
 
     @Test
     void preflightRequestFromAllowedOriginReturnsCorsHeaders() throws Exception {
@@ -123,6 +132,7 @@ class SecurityConfigTest {
     @Test
     void authenticatedEndpointIncludesBasicSecurityHeaders() throws Exception {
         when(jwtTokenService.parseUserId("valid-token")).thenReturn(1L);
+        when(loginSessionService.refreshSession("valid-token", 1L)).thenReturn(true);
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser()));
         when(knowledgeService.getKnowledgeList(nullable(AuthenticatedUser.class))).thenReturn(List.of(buildKnowledge()));
 
@@ -136,6 +146,23 @@ class SecurityConfigTest {
             .andExpect(header().string("X-Content-Type-Options", "nosniff"))
             .andExpect(header().string("X-Frame-Options", "SAMEORIGIN"))
             .andExpect(header().string("Referrer-Policy", "no-referrer"));
+
+        verify(loginSessionService).refreshSession("valid-token", 1L);
+    }
+
+    @Test
+    void protectedEndpointWithExpiredSessionReturns401() throws Exception {
+        when(jwtTokenService.parseUserId("expired-session-token")).thenReturn(1L);
+        when(loginSessionService.refreshSession("expired-session-token", 1L)).thenReturn(false);
+
+        mockMvc.perform(
+            get("/knowledge")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer expired-session-token")
+                .accept(MediaType.APPLICATION_JSON)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value(401))
+            .andExpect(jsonPath("$.message").value("Unauthorized"));
     }
 
     private AppUser buildUser() {

@@ -13,8 +13,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.philxin.interviewos.common.GlobalExceptionHandler;
 import com.philxin.interviewos.controller.dto.auth.AuthResponse;
 import com.philxin.interviewos.controller.dto.auth.AuthUserResponse;
+import com.philxin.interviewos.controller.dto.invitation.PublicRegistrationInvitationResponse;
 import com.philxin.interviewos.security.AuthenticatedUser;
 import com.philxin.interviewos.service.AuthService;
+import com.philxin.interviewos.service.RegistrationInvitationService;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -39,12 +42,16 @@ class AuthControllerTest {
     @MockBean
     private AuthService authService;
 
+    @MockBean
+    private RegistrationInvitationService registrationInvitationService;
+
     @Test
     void registerReturns201() throws Exception {
-        when(authService.register("user@example.com", "Password123!", "philxin")).thenReturn(buildAuthResponse());
+        when(authService.register("invite-code", "user@example.com", "Password123!", "philxin"))
+            .thenReturn(buildAuthResponse());
 
         String requestJson = objectMapper.writeValueAsString(
-            new RegisterBody("user@example.com", "Password123!", "philxin")
+            new RegisterBody("invite-code", "user@example.com", "Password123!", "philxin")
         );
 
         mockMvc.perform(
@@ -71,7 +78,7 @@ class AuthControllerTest {
         )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.expiresIn").value(7200));
+            .andExpect(jsonPath("$.data.expiresIn").value(604800));
     }
 
     @Test
@@ -90,7 +97,7 @@ class AuthControllerTest {
 
     @Test
     void registerValidationFailureReturns400() throws Exception {
-        String requestJson = objectMapper.writeValueAsString(new RegisterBody("", "weak", ""));
+        String requestJson = objectMapper.writeValueAsString(new RegisterBody("", "", "weak", ""));
 
         mockMvc.perform(
             post("/auth/register")
@@ -101,11 +108,26 @@ class AuthControllerTest {
             .andExpect(jsonPath("$.code").value(400));
     }
 
+    @Test
+    void getInvitationReturns200() throws Exception {
+        PublicRegistrationInvitationResponse response = new PublicRegistrationInvitationResponse();
+        response.setInvitationCode("11111111-1111-1111-1111-111111111111");
+        response.setInviteeEmail("user@example.com");
+        response.setExpiresAt(LocalDateTime.of(2026, 3, 31, 10, 0));
+        when(registrationInvitationService.getInvitation("11111111-1111-1111-1111-111111111111"))
+            .thenReturn(response);
+
+        mockMvc.perform(get("/auth/invitations/11111111-1111-1111-1111-111111111111"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(0))
+            .andExpect(jsonPath("$.data.inviteeEmail").value("user@example.com"));
+    }
+
     private AuthResponse buildAuthResponse() {
         AuthResponse response = new AuthResponse();
         response.setToken("jwt-token");
         response.setTokenType("Bearer");
-        response.setExpiresIn(7200);
+        response.setExpiresIn(604800);
         response.setUser(buildUserResponse());
         return response;
     }
@@ -127,7 +149,7 @@ class AuthControllerTest {
         return user;
     }
 
-    private record RegisterBody(String email, String password, String displayName) {
+    private record RegisterBody(String invitationCode, String email, String password, String displayName) {
     }
 
     private record LoginBody(String email, String password) {

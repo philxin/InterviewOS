@@ -3,6 +3,7 @@ package com.philxin.interviewos.config;
 import com.philxin.interviewos.repository.AppUserRepository;
 import com.philxin.interviewos.security.JwtAuthenticationFilter;
 import com.philxin.interviewos.security.JwtTokenService;
+import com.philxin.interviewos.security.LoginSessionService;
 import com.philxin.interviewos.security.RestAccessDeniedHandler;
 import com.philxin.interviewos.security.RestAuthenticationEntryPoint;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,10 +28,17 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * V2 安全配置：仅放行认证接口，其余接口默认要求 JWT。
  */
 @Configuration
-@EnableConfigurationProperties({AppCorsProperties.class, JwtProperties.class})
+@EnableConfigurationProperties({
+    AppCorsProperties.class,
+    JwtProperties.class,
+    LoginSessionProperties.class,
+    RegistrationInvitationProperties.class
+})
 public class SecurityConfig {
     private static final String[] PUBLIC_ENDPOINTS = {
-        "/auth/**",
+        "/auth/login",
+        "/auth/register",
+        "/auth/invitations/**",
         "/error"
     };
 
@@ -92,9 +100,10 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(
         JwtTokenService jwtTokenService,
-        AppUserRepository appUserRepository
+        AppUserRepository appUserRepository,
+        LoginSessionService loginSessionService
     ) {
-        return new JwtAuthenticationFilter(jwtTokenService, appUserRepository);
+        return new JwtAuthenticationFilter(jwtTokenService, appUserRepository, loginSessionService);
     }
 
     /**

@@ -34,9 +34,27 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
+  invitationCode: string
   email: string
   password: string
   displayName: string
+}
+
+export interface CreateRegistrationInvitationRequest {
+  email: string
+}
+
+export interface RegistrationInvitation {
+  invitationCode: string
+  inviteeEmail: string
+  registrationPath: string
+  expiresAt: string
+}
+
+export interface PublicRegistrationInvitation {
+  invitationCode: string
+  inviteeEmail: string
+  expiresAt: string
 }
 
 export interface UpdateOnboardingRequest {

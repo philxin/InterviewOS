@@ -1,6 +1,5 @@
 package com.philxin.interviewos.config;
 
-import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -9,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.security.jwt")
 public class JwtProperties {
     private String secret;
-    private Duration expiresIn = Duration.ofHours(2);
     private String issuer = "InterviewOS";
 
     public String getSecret() {
@@ -18,14 +16,6 @@ public class JwtProperties {
 
     public void setSecret(String secret) {
         this.secret = secret;
-    }
-
-    public Duration getExpiresIn() {
-        return expiresIn;
-    }
-
-    public void setExpiresIn(Duration expiresIn) {
-        this.expiresIn = expiresIn;
     }
 
     public String getIssuer() {

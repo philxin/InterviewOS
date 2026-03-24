@@ -11,10 +11,22 @@ const routes: RouteRecordRaw[] = [
     meta: { guestOnly: true },
   },
   {
+    path: '/invite/:invitationCode',
+    name: 'InvitationRegister',
+    component: () => import('../views/InvitationRegisterView.vue'),
+    meta: { guestOnly: true },
+  },
+  {
     path: '/onboarding',
     name: 'Onboarding',
     component: () => import('../views/OnboardingView.vue'),
     meta: { requiresAuth: true, allowWithoutOnboarding: true },
+  },
+  {
+    path: '/invitations',
+    name: 'Invitations',
+    component: () => import('../views/InvitationManageView.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/',
