@@ -1,65 +1,97 @@
 <template>
   <section class="auth-page">
-    <div class="auth-hero">
-      <div class="hero-decoration"></div>
-      <div class="hero-content">
-        <div class="hero-badge">InterviewOS V2</div>
-        <h1>面试提升<br/><span class="gradient-text">从这里开始</span></h1>
-        <p class="subtitle">
-          登录后进入你的训练数据和会话主链路，全面追踪你的面试准备进度。
-        </p>
-        <ul class="auth-points">
-          <li>
-            <span class="point-icon">🔒</span>
-            <span>知识点、训练历史和结果页全部按用户隔离</span>
-          </li>
-          <li>
-            <span class="point-icon">🔄</span>
-            <span>登录成功后自动恢复到原本想访问的页面</span>
-          </li>
-          <li>
-            <span class="point-icon">✉️</span>
-            <span>账号采用邀请注册制，请联系已注册用户获取邀请链接</span>
-          </li>
-        </ul>
-      </div>
-    </div>
+    <div class="auth-shell">
+      <div class="auth-hero">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <div class="hero-badge">InterviewOS Access</div>
+            <h1>登录后继续你的<br><span class="gradient-text">面试训练主链路</span></h1>
+            <p class="subtitle">
+              进入知识点看板、推荐训练和结果复盘页，沿着同一条训练路径持续推进准备节奏。
+            </p>
+          </div>
 
-    <div class="auth-card-wrapper">
-      <div class="auth-card">
-        <div class="auth-heading">
-          <h2>登录账号</h2>
-          <p>公开注册已关闭，收到邀请链接后再完成注册。</p>
+          <div class="hero-highlights">
+            <article class="highlight-card">
+              <span>训练看板</span>
+              <strong>当天推荐与回练提醒集中处理</strong>
+            </article>
+            <article class="highlight-card">
+              <span>结果追踪</span>
+              <strong>最近训练、分数变化和薄弱项一屏查看</strong>
+            </article>
+            <article class="highlight-card">
+              <span>账号机制</span>
+              <strong>登录账号与邀请注册链路分开，访问边界更清晰</strong>
+            </article>
+          </div>
+
+          <div class="hero-panel">
+            <span class="panel-kicker">登录前说明</span>
+            <ul class="auth-points">
+              <li>
+                <span class="point-icon">01</span>
+                <div class="point-copy">
+                  <strong>已有账号可直接登录</strong>
+                  <span>使用已完成邀请注册的邮箱和密码进入系统。</span>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon">02</span>
+                <div class="point-copy">
+                  <strong>没有账号先拿邀请链接</strong>
+                  <span>当前不开放公开注册，需要由已注册用户发起邀请。</span>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon">03</span>
+                <div class="point-copy">
+                  <strong>登录后自动回到原页面</strong>
+                  <span>如果你是从某个功能页跳转过来，认证成功后会自动恢复。</span>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
+      </div>
 
-        <form class="auth-form" @submit.prevent="submit">
-          <label class="field">
-            <span>邮箱</span>
-            <input
-              v-model.trim="loginForm.email"
-              autocomplete="email"
-              placeholder="name@example.com"
-              type="email"
-            />
-          </label>
+      <div class="auth-card-wrapper">
+        <div class="auth-card">
+          <div class="auth-heading">
+            <span class="auth-eyebrow">已有账号</span>
+            <h2>登录并继续</h2>
+            <p>输入你的邮箱和密码，回到当前训练进度。</p>
+          </div>
 
-          <label class="field">
-            <span>密码</span>
-            <input
-              v-model="loginForm.password"
-              autocomplete="current-password"
-              placeholder="请输入密码"
-              type="password"
-            />
-          </label>
+          <form class="auth-form" @submit.prevent="submit">
+            <label class="field">
+              <span>邮箱</span>
+              <input
+                v-model.trim="loginForm.email"
+                autocomplete="email"
+                placeholder="name@example.com"
+                type="email"
+              />
+            </label>
 
-          <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-          <p class="helper">如果你还没有账号，请联系团队内已注册用户发起邀请。</p>
+            <label class="field">
+              <span>密码</span>
+              <input
+                v-model="loginForm.password"
+                autocomplete="current-password"
+                placeholder="请输入密码"
+                type="password"
+              />
+            </label>
 
-          <button class="btn btn-primary submit-btn" :disabled="submitting" type="submit">
-            {{ submitting ? '提交中...' : '登录并继续' }}
-          </button>
-        </form>
+            <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+            <p class="helper">如果你还没有账号，请联系团队内已注册用户发起邀请。</p>
+
+            <button class="btn btn-primary submit-btn" :disabled="submitting" type="submit">
+              {{ submitting ? '提交中...' : '登录并继续' }}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   </section>
@@ -129,33 +161,58 @@ async function submit() {
 <style scoped>
 .auth-page {
   min-height: calc(100vh - var(--nav-height));
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: var(--sp-8);
-  align-items: center;
   padding: var(--sp-6) 0;
 }
 
-/* Hero Section */
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.9fr);
+  gap: var(--sp-6);
+  align-items: stretch;
+}
+
 .auth-hero {
   position: relative;
-  padding: var(--sp-6) var(--sp-5);
+  padding: var(--sp-6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: var(--radius-2xl);
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.15), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.92));
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
-.hero-decoration {
+.auth-hero::before {
   position: absolute;
-  top: -80px;
-  left: -60px;
-  width: 400px;
-  height: 400px;
+  content: '';
+  inset: auto -80px -120px auto;
+  width: 260px;
+  height: 260px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.12), transparent 70%);
+  background: rgba(99, 102, 241, 0.08);
+  filter: blur(10px);
   pointer-events: none;
 }
 
-.hero-content {
+.auth-hero::after {
+  position: absolute;
+  content: '';
+  inset: -120px auto auto -60px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(6, 182, 212, 0.08);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.hero-grid {
   position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--sp-5);
 }
 
 .hero-badge {
@@ -170,10 +227,14 @@ async function submit() {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-bottom: var(--sp-4);
 }
 
-.auth-hero h1 {
+.hero-copy {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.hero-copy h1 {
   margin: 0;
   font-size: clamp(2.2rem, 5vw, 3.5rem);
   line-height: 1.1;
@@ -190,15 +251,62 @@ async function submit() {
 }
 
 .subtitle {
-  margin: var(--sp-5) 0 0;
   max-width: 50ch;
+  margin: 0;
   color: var(--clr-text-secondary);
   font-size: var(--fs-base);
   line-height: 1.7;
 }
 
+.hero-highlights {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.highlight-card {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(226, 232, 240, 0.78);
+  box-shadow: var(--shadow-sm);
+}
+
+.highlight-card span {
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.highlight-card strong {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.hero-panel {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.92));
+  color: var(--clr-text-inverse);
+  box-shadow: var(--shadow-lg);
+}
+
+.panel-kicker {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .auth-points {
-  margin: var(--sp-6) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
@@ -206,30 +314,53 @@ async function submit() {
 }
 
 .auth-points li {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: var(--sp-3);
-  font-size: var(--fs-sm);
-  color: var(--clr-text-secondary);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .point-icon {
-  font-size: 1.2rem;
-  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: var(--fs-xs);
+  font-weight: 800;
 }
 
-/* Auth Card */
+.point-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.point-copy strong {
+  font-size: var(--fs-sm);
+}
+
+.point-copy span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
 .auth-card-wrapper {
   display: flex;
-  justify-content: center;
+  align-items: stretch;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
   padding: var(--sp-6);
   border-radius: var(--radius-2xl);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(226, 232, 240, 0.6);
@@ -239,53 +370,33 @@ async function submit() {
   animation: slideUp 0.5s var(--ease-out);
 }
 
-/* Mode Switch */
-.mode-switch {
+.auth-heading {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  position: relative;
-  padding: 4px;
-  gap: 4px;
-  background: var(--clr-bg-secondary);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  gap: var(--sp-2);
 }
 
-.mode-btn {
-  position: relative;
-  z-index: 1;
-  border: 0;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  padding: 12px;
+.auth-eyebrow {
+  color: var(--clr-primary-dark);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-heading h2 {
+  margin: 0;
+  font-size: var(--fs-3xl);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.auth-heading p {
+  margin: 0;
+  color: var(--clr-text-secondary);
   font-size: var(--fs-sm);
-  color: var(--clr-text-tertiary);
-  cursor: pointer;
-  transition: color var(--duration-normal) var(--ease-out);
+  line-height: 1.6;
 }
 
-.mode-btn.active {
-  color: var(--clr-text);
-}
-
-.mode-slider {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(50% - 4px);
-  height: calc(100% - 8px);
-  background: var(--clr-surface);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  transition: transform var(--duration-normal) var(--ease-out);
-}
-
-.mode-slider.right {
-  transform: translateX(calc(100% + 4px));
-}
-
-/* Form */
 .auth-form {
   display: grid;
   gap: var(--sp-4);
@@ -340,41 +451,52 @@ async function submit() {
   margin-top: var(--sp-1);
 }
 
-/* Responsive */
 @media (max-width: 920px) {
-  .auth-page {
+  .auth-shell {
     grid-template-columns: 1fr;
-    min-height: auto;
-    padding: var(--sp-4);
     gap: var(--sp-4);
   }
 
-  .auth-hero {
-    padding: var(--sp-2) 0 0;
+  .hero-highlights {
+    grid-template-columns: 1fr;
   }
 
-  .hero-decoration {
-    width: 250px;
-    height: 250px;
-    top: -40px;
-    left: -30px;
+  .auth-page {
+    min-height: auto;
+    padding: var(--sp-4) 0;
   }
 
-  .auth-card-wrapper {
-    justify-content: stretch;
-  }
-
+  .auth-hero,
   .auth-card {
-    max-width: 100%;
+    padding: var(--sp-5);
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-copy h1 {
+    font-size: 2rem;
+  }
+
+  .auth-heading h2 {
+    font-size: var(--fs-2xl);
+  }
+
+  .auth-points li {
+    grid-template-columns: 1fr;
+  }
+
+  .point-icon {
+    width: 30px;
+    height: 30px;
   }
 }
 
 @media (max-width: 480px) {
-  .auth-hero h1 {
-    font-size: 1.8rem;
+  .auth-card {
+    padding: var(--sp-4);
   }
 
-  .auth-card {
+  .auth-hero {
     padding: var(--sp-4);
   }
 }
