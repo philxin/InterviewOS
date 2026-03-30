@@ -62,6 +62,9 @@ export const useTrainingStore = defineStore('training', () => {
           hintUsed: Boolean(currentHint.value),
           answer: currentAnswer.value,
           feedback,
+          questionReferences: currentSession.value.references,
+          hintReferences: currentHint.value ? currentSession.value.references : [],
+          feedbackReferences: feedback.references,
         },
       ],
     }

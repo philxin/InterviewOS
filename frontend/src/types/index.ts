@@ -116,23 +116,106 @@ export interface BatchImportKnowledgeResponse {
   failedItems: BatchImportKnowledgeFailedItem[]
 }
 
+export type KnowledgeFileImportStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'CHUNKING'
+  | 'EMBEDDING'
+  | 'SUCCESS'
+  | 'PARTIAL'
+  | 'FAILED'
+
 export interface KnowledgeFileImportStartResponse {
   importId: string
-  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+  documentId: string | null
+  status: KnowledgeFileImportStatus
+  fileName: string
+  fileSize: number
+  totalChunks: number
+  embeddedChunks: number
+  failedChunks: number
 }
 
 export interface KnowledgeFileImportResponse {
   importId: string
+  documentId: string | null
   fileName: string
   contentType: string
   fileSize: number
-  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+  status: KnowledgeFileImportStatus
   defaultTags: string[]
   createdCount: number
+  totalChunks: number
+  embeddedChunks: number
+  failedChunks: number
+  embeddingModel: string | null
+  embeddingDim: number | null
   failureReason: string | null
   createdAt: string
   updatedAt: string
   completedAt: string | null
+}
+
+export type KnowledgeDocumentStatus = 'PROCESSING' | 'ACTIVE' | 'ARCHIVED' | 'FAILED'
+
+export interface KnowledgeDocument {
+  documentId: string
+  importId: string | null
+  title: string
+  originalFileName: string
+  contentType: string
+  status: KnowledgeDocumentStatus
+  totalChunks: number
+  activeChunks: number
+  embeddingModel: string | null
+  embeddingDim: number | null
+  indexedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type KnowledgeConceptStatus = 'CANDIDATE' | 'ACCEPTED' | 'REJECTED'
+
+export interface KnowledgeConcept {
+  conceptId: number
+  documentId: string
+  name: string
+  summary: string | null
+  aliases: string[]
+  supportingChunkIds: number[]
+  confidence: number | null
+  status: KnowledgeConceptStatus
+  acceptedKnowledgeId: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AcceptKnowledgeConceptRequest {
+  mergeKnowledgeId?: number
+  title?: string
+  content?: string
+  tags?: string[]
+}
+
+export interface RagSearchItem {
+  chunkId: number
+  documentId: string
+  documentTitle: string
+  score: number
+  snippet: string
+  pageFrom: number | null
+  pageTo: number | null
+  startOffset: number | null
+  endOffset: number | null
+}
+
+export interface RagSearchResponse {
+  query: string
+  documentId: string | null
+  topK: number
+  hitCount: number
+  degraded: boolean
+  items: RagSearchItem[]
 }
 
 export interface DashboardWeakKnowledgeItem {
@@ -205,9 +288,28 @@ export interface FeedbackBand {
   description?: string
 }
 
+export type RetrievalMode = 'RAG' | 'FALLBACK'
+
+export type TrainingReferenceUsageType = 'QUESTION' | 'HINT' | 'FEEDBACK'
+
+export interface TrainingReference {
+  usageType: TrainingReferenceUsageType
+  chunkId: number | null
+  documentId: string | null
+  documentTitle: string
+  excerpt: string
+  similarityScore: number | null
+  pageFrom: number | null
+  pageTo: number | null
+  startOffset: number | null
+  endOffset: number | null
+}
+
 export interface TrainingFeedback {
   score: number
   band: FeedbackBand
+  retrievalMode: RetrievalMode
+  references: TrainingReference[]
   majorIssue: string
   missingPoints: string[]
   betterAnswerApproach: string[]
@@ -236,6 +338,8 @@ export interface TrainingSessionStartResponse {
   questionType: QuestionType
   difficulty: Difficulty
   hintAvailable: boolean
+  retrievalMode: RetrievalMode
+  references: TrainingReference[]
   sequence: {
     current: number
     total: number
@@ -249,6 +353,8 @@ export interface SubmitSessionAnswerRequest {
 
 export interface TrainingHintResponse {
   hint: string
+  retrievalMode: RetrievalMode
+  references: TrainingReference[]
 }
 
 export interface TrainingSessionSummary {
@@ -276,6 +382,9 @@ export interface TrainingSessionQuestionDetail {
   hintUsed: boolean
   answer: string | null
   feedback: TrainingFeedback | null
+  questionReferences: TrainingReference[]
+  hintReferences: TrainingReference[]
+  feedbackReferences: TrainingReference[]
 }
 
 export interface TrainingSessionDetail {

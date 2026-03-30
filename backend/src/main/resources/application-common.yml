@@ -28,6 +28,11 @@ spring:
         options:
           model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
           temperature: ${OPENAI_CHAT_TEMPERATURE:0.7}
+      embedding:
+        enabled: ${OPENAI_EMBEDDING_ENABLED:true}
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
+          dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:3072}
 
 # =============================
 # 双数据库并存配置（统一维护）
@@ -70,6 +75,15 @@ app:
       password: ${POSTGRES_PASSWORD:}
       driver-class-name: org.postgresql.Driver
       dialect: org.hibernate.dialect.PostgreSQLDialect
+  rag:
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
+    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:3072}
+    chunk-size: ${APP_RAG_CHUNK_SIZE:1200}
+    chunk-overlap: ${APP_RAG_CHUNK_OVERLAP:200}
+    min-chunk-length: ${APP_RAG_MIN_CHUNK_LENGTH:80}
+    max-chunks-per-document: ${APP_RAG_MAX_CHUNKS_PER_DOCUMENT:128}
+    search-top-k: ${APP_RAG_SEARCH_TOP_K:5}
+    min-similarity-score: ${APP_RAG_MIN_SIMILARITY_SCORE:0.25}
 
 logging:
   pattern:

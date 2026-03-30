@@ -11,6 +11,7 @@
           <button class="btn" type="button" @click="goInvitations">✉️ 邀请注册</button>
           <button class="btn" type="button" @click="goHistory">📊 训练历史</button>
           <button class="btn" type="button" @click="goImport">📥 批量导入</button>
+          <button class="btn" type="button" @click="goDocuments">📚 文档库</button>
           <button class="btn btn-primary" type="button" @click="goCreate">➕ 新建知识点</button>
         </div>
       </div>
@@ -454,6 +455,7 @@ async function fetchReviewReminders() {
 function goCreate() { router.push('/knowledge/new') }
 function goEdit(id: number) { router.push(`/knowledge/edit/${id}`) }
 function goImport() { router.push('/knowledge/import') }
+function goDocuments() { router.push('/knowledge/documents') }
 function goInvitations() { router.push('/invitations') }
 function goTraining(id: number) { router.push(`/training/${id}`) }
 function goResult(sessionId: string) { router.push(`/result/${sessionId}`) }

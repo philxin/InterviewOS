@@ -8,6 +8,8 @@ import java.util.List;
 public class TrainingFeedbackResponse {
     private Integer score;
     private FeedbackBandResponse band;
+    private String retrievalMode;
+    private List<TrainingReferenceResponse> references;
     private String majorIssue;
     private List<String> missingPoints;
     private List<String> betterAnswerApproach;
@@ -30,6 +32,22 @@ public class TrainingFeedbackResponse {
 
     public void setBand(FeedbackBandResponse band) {
         this.band = band;
+    }
+
+    public String getRetrievalMode() {
+        return retrievalMode;
+    }
+
+    public void setRetrievalMode(String retrievalMode) {
+        this.retrievalMode = retrievalMode;
+    }
+
+    public List<TrainingReferenceResponse> getReferences() {
+        return references;
+    }
+
+    public void setReferences(List<TrainingReferenceResponse> references) {
+        this.references = references;
     }
 
     public String getMajorIssue() {

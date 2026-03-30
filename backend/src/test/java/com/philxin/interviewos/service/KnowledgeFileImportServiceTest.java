@@ -120,6 +120,26 @@ class KnowledgeFileImportServiceTest {
     }
 
     @Test
+    void createFileImportRejectsOversizedFile() {
+        when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser(1L)));
+        byte[] content = new byte[(int) KnowledgeFileImportParser.MAX_FILE_SIZE_BYTES + 1];
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "too-large.pdf",
+            "application/pdf",
+            content
+        );
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> knowledgeFileImportService.createFileImport(authenticatedUser(1L), file, "backend")
+        );
+
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getStatus());
+        assertEquals("file size must be <= 5MB", exception.getMessage());
+    }
+
+    @Test
     void getFileImportReturnsCurrentUserTaskStatus() {
         UUID importId = UUID.randomUUID();
         KnowledgeFileImport fileImport = new KnowledgeFileImport();

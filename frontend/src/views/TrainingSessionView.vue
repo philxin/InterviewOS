@@ -43,6 +43,23 @@
           <span class="hint-label">💡 答题提示</span>
           <p>{{ hint }}</p>
         </div>
+        <div class="retrieval-mode-row">
+          <span class="pill pill-dark">出题模式 {{ retrievalModeLabel(questionRetrievalMode) }}</span>
+          <span v-if="hint" class="pill pill-dark">提示模式 {{ retrievalModeLabel(hintRetrievalMode) }}</span>
+        </div>
+        <div class="reference-stack">
+          <TrainingReferenceList
+            title="本题依据材料"
+            :references="questionReferences"
+            empty-text="本题未命中外部文档，当前按知识点基础内容生成。"
+          />
+          <TrainingReferenceList
+            v-if="hint"
+            title="提示依据材料"
+            :references="hintReferences"
+            empty-text="本次提示未命中外部文档，当前按知识点基础内容生成。"
+          />
+        </div>
       </section>
 
       <section class="card answer-card">
@@ -74,8 +91,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { trainingAPI } from '../api'
 import AppStateCard from '../components/AppStateCard.vue'
+import TrainingReferenceList from '../components/TrainingReferenceList.vue'
 import { useTrainingStore } from '../stores/training'
-import type { TrainingSessionDetail, TrainingSessionStartResponse } from '../types'
+import type { RetrievalMode, TrainingReference, TrainingSessionDetail, TrainingSessionStartResponse } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -88,6 +106,10 @@ const errorMessage = ref('')
 const answer = ref(trainingStore.currentAnswer || '')
 const hint = ref(trainingStore.currentHint || '')
 const session = ref<TrainingSessionStartResponse | null>(trainingStore.currentSession)
+const questionReferences = ref<TrainingReference[]>(trainingStore.currentSession?.references ?? [])
+const hintReferences = ref<TrainingReference[]>([])
+const questionRetrievalMode = ref<RetrievalMode>(trainingStore.currentSession?.retrievalMode ?? 'FALLBACK')
+const hintRetrievalMode = ref<RetrievalMode>('FALLBACK')
 
 const sessionId = computed(() => String(route.params.sessionId || ''))
 const isLastQuestion = computed(() => {
@@ -115,6 +137,7 @@ async function initSession() {
     session.value.sessionId === sessionId.value &&
     trainingStore.latestDetail?.sessionId === sessionId.value
   ) {
+    hydrateSessionFromDetail(trainingStore.latestDetail)
     trainingStore.setCurrentAnswer(answer.value)
     trainingStore.setCurrentHint(hint.value)
     return
@@ -151,6 +174,8 @@ function hydrateSessionFromDetail(detail: TrainingSessionDetail) {
     questionType: activeQuestion.questionType,
     difficulty: activeQuestion.difficulty,
     hintAvailable: activeQuestion.hintAvailable,
+    retrievalMode: activeQuestion.questionReferences.length > 0 ? 'RAG' : 'FALLBACK',
+    references: activeQuestion.questionReferences,
     sequence: {
       current: activeQuestion.orderNo,
       total: detail.questionCount,
@@ -158,12 +183,16 @@ function hydrateSessionFromDetail(detail: TrainingSessionDetail) {
   }
   answer.value = activeQuestion.answer || ''
   hint.value = activeQuestion.hintText || ''
+  questionReferences.value = activeQuestion.questionReferences
+  hintReferences.value = activeQuestion.hintReferences
+  questionRetrievalMode.value = session.value.retrievalMode
+  hintRetrievalMode.value = activeQuestion.hintReferences.length > 0 ? 'RAG' : 'FALLBACK'
   trainingStore.setCurrentSession(session.value)
   trainingStore.setCurrentAnswer(answer.value)
   trainingStore.setCurrentHint(hint.value)
 }
 
-function syncDetailHint(nextHint: string) {
+function syncDetailHint(nextHint: string, nextReferences: TrainingReference[]) {
   if (!session.value || !trainingStore.latestDetail || trainingStore.latestDetail.sessionId !== sessionId.value) {
     return
   }
@@ -176,6 +205,7 @@ function syncDetailHint(nextHint: string) {
   targetQuestion.hintText = nextHint
   targetQuestion.hintUsed = true
   targetQuestion.hintAvailable = false
+  targetQuestion.hintReferences = nextReferences
 }
 
 async function loadHint() {
@@ -189,13 +219,15 @@ async function loadHint() {
   try {
     const response = await trainingAPI.getHint(session.value.sessionId, session.value.questionId)
     hint.value = response.hint
+    hintReferences.value = response.references
+    hintRetrievalMode.value = response.retrievalMode
     session.value = {
       ...session.value,
       hintAvailable: false,
     }
     trainingStore.setCurrentSession(session.value)
     trainingStore.setCurrentHint(response.hint)
-    syncDetailHint(response.hint)
+    syncDetailHint(response.hint, response.references)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取提示失败'
   } finally {
@@ -244,6 +276,10 @@ async function submitAnswer() {
 
 function goBack() {
   router.push('/')
+}
+
+function retrievalModeLabel(mode: RetrievalMode) {
+  return mode === 'RAG' ? 'RAG' : 'FALLBACK'
 }
 
 onMounted(async () => {
@@ -357,6 +393,24 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   gap: var(--sp-2);
+}
+
+.retrieval-mode-row {
+  margin-top: var(--sp-3);
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.pill-dark {
+  background: var(--clr-text);
+  color: var(--clr-text-inverse);
+}
+
+.reference-stack {
+  margin-top: var(--sp-3);
+  display: grid;
+  gap: var(--sp-3);
 }
 
 .hint-actions {

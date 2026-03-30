@@ -7,6 +7,7 @@
       </div>
       <div class="actions">
         <button class="btn" type="button" @click="goToBatchImport">批量录入</button>
+        <button class="btn" type="button" @click="goToDocuments">文档库</button>
         <button class="btn" type="button" @click="goBack">返回知识点</button>
       </div>
     </header>
@@ -61,6 +62,7 @@
         <div>
           <h2>导入任务状态</h2>
           <p class="meta-text">任务 ID：{{ task.importId }}</p>
+          <p v-if="task.documentId" class="meta-text">文档 ID：{{ task.documentId }}</p>
         </div>
         <span class="status-chip" :class="task.status.toLowerCase()">{{ statusLabelMap[task.status] }}</span>
       </header>
@@ -83,6 +85,26 @@
           <dd>{{ task.createdCount }}</dd>
         </div>
         <div>
+          <dt>Chunk 总数</dt>
+          <dd>{{ task.totalChunks }}</dd>
+        </div>
+        <div>
+          <dt>已向量化 Chunk</dt>
+          <dd>{{ task.embeddedChunks }}</dd>
+        </div>
+        <div>
+          <dt>失败 Chunk</dt>
+          <dd>{{ task.failedChunks }}</dd>
+        </div>
+        <div>
+          <dt>Embedding 模型</dt>
+          <dd>{{ task.embeddingModel || '—' }}</dd>
+        </div>
+        <div>
+          <dt>向量维度</dt>
+          <dd>{{ task.embeddingDim ?? '—' }}</dd>
+        </div>
+        <div>
           <dt>创建时间</dt>
           <dd>{{ formatDate(task.createdAt) }}</dd>
         </div>
@@ -99,16 +121,19 @@
       </div>
 
       <p v-if="task.failureReason" class="error">{{ task.failureReason }}</p>
+      <p v-if="task.status === 'PARTIAL'" class="warning">
+        当前文档可用，但部分 chunk 未成功建立索引，建议检查失败原因并重试导入。
+      </p>
 
       <div class="status-actions">
         <button class="btn" type="button" @click="refreshStatus">🔄 刷新状态</button>
         <button
-          v-if="task.status === 'SUCCESS'"
+          v-if="task.status === 'SUCCESS' || task.status === 'PARTIAL'"
           class="btn btn-primary"
           type="button"
-          @click="goBack"
+          @click="goToTaskDocument"
         >
-          返回知识点列表
+          查看文档索引
         </button>
       </div>
     </section>
@@ -134,7 +159,10 @@ let pollingTimer: number | null = null
 const statusLabelMap: Record<KnowledgeFileImportResponse['status'], string> = {
   PENDING: '等待处理',
   PROCESSING: '处理中',
+  CHUNKING: '切片中',
+  EMBEDDING: '向量化中',
   SUCCESS: '已完成',
+  PARTIAL: '部分完成',
   FAILED: '失败',
 }
 
@@ -208,7 +236,7 @@ async function fetchTask(importId: string) {
   try {
     task.value = await knowledgeAPI.getFileImportStatus(importId)
     errorMessage.value = ''
-    if (task.value.status === 'SUCCESS' || task.value.status === 'FAILED') stopPolling()
+    if (isTerminalStatus(task.value.status)) stopPolling()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取任务状态失败'
     stopPolling()
@@ -217,12 +245,16 @@ async function fetchTask(importId: string) {
 
 function schedulePolling() {
   stopPolling()
-  if (!task.value || task.value.status === 'SUCCESS' || task.value.status === 'FAILED') return
+  if (!task.value || isTerminalStatus(task.value.status)) return
   pollingTimer = window.setInterval(() => {
     const importId = task.value?.importId
     if (!importId) { stopPolling(); return }
     void fetchTask(importId)
   }, 2000)
+}
+
+function isTerminalStatus(status: KnowledgeFileImportResponse['status']) {
+  return status === 'SUCCESS' || status === 'PARTIAL' || status === 'FAILED'
 }
 
 function stopPolling() {
@@ -242,6 +274,14 @@ function formatDate(value: string | null) {
 
 function goBack() { router.push('/') }
 function goToBatchImport() { router.push('/knowledge/import') }
+function goToDocuments() { router.push('/knowledge/documents') }
+function goToTaskDocument() {
+  if (task.value?.documentId) {
+    router.push({ path: '/knowledge/documents', query: { documentId: task.value.documentId } })
+    return
+  }
+  router.push('/knowledge/documents')
+}
 </script>
 
 <style scoped>
@@ -419,9 +459,21 @@ function goToBatchImport() { router.push('/knowledge/import') }
   animation: pulse 2s ease-in-out infinite;
 }
 
+.status-chip.chunking,
+.status-chip.embedding {
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--clr-accent-dark);
+  animation: pulse 2s ease-in-out infinite;
+}
+
 .status-chip.success {
   background: var(--clr-success-bg);
   color: #15803d;
+}
+
+.status-chip.partial {
+  background: var(--clr-warning-bg);
+  color: #b45309;
 }
 
 .status-chip.failed {
@@ -434,6 +486,13 @@ function goToBatchImport() { router.push('/knowledge/import') }
   color: var(--clr-danger);
   font-size: var(--fs-sm);
   font-weight: 500;
+}
+
+.warning {
+  margin: 0;
+  color: #b45309;
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

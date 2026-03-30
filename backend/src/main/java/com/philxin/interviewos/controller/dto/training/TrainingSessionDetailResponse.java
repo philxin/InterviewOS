@@ -120,6 +120,9 @@ public class TrainingSessionDetailResponse {
         private boolean hintUsed;
         private String answer;
         private TrainingFeedbackResponse feedback;
+        private List<TrainingReferenceResponse> questionReferences;
+        private List<TrainingReferenceResponse> hintReferences;
+        private List<TrainingReferenceResponse> feedbackReferences;
 
         public UUID getQuestionId() {
             return questionId;
@@ -207,6 +210,30 @@ public class TrainingSessionDetailResponse {
 
         public void setFeedback(TrainingFeedbackResponse feedback) {
             this.feedback = feedback;
+        }
+
+        public List<TrainingReferenceResponse> getQuestionReferences() {
+            return questionReferences;
+        }
+
+        public void setQuestionReferences(List<TrainingReferenceResponse> questionReferences) {
+            this.questionReferences = questionReferences;
+        }
+
+        public List<TrainingReferenceResponse> getHintReferences() {
+            return hintReferences;
+        }
+
+        public void setHintReferences(List<TrainingReferenceResponse> hintReferences) {
+            this.hintReferences = hintReferences;
+        }
+
+        public List<TrainingReferenceResponse> getFeedbackReferences() {
+            return feedbackReferences;
+        }
+
+        public void setFeedbackReferences(List<TrainingReferenceResponse> feedbackReferences) {
+            this.feedbackReferences = feedbackReferences;
         }
     }
 }

@@ -6,6 +6,9 @@ package com.philxin.interviewos.entity;
 public enum KnowledgeFileImportStatus {
     PENDING,
     PROCESSING,
+    CHUNKING,
+    EMBEDDING,
     SUCCESS,
+    PARTIAL,
     FAILED
 }

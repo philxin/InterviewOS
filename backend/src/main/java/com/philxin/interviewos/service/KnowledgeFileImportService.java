@@ -87,12 +87,18 @@ public class KnowledgeFileImportService {
 
         KnowledgeFileImportResponse response = new KnowledgeFileImportResponse();
         response.setImportId(fileImport.getId());
+        response.setDocumentId(fileImport.getDocumentId());
         response.setFileName(fileImport.getFileName());
         response.setContentType(fileImport.getContentType());
         response.setFileSize(fileImport.getFileSize() == null ? 0L : fileImport.getFileSize());
         response.setStatus(fileImport.getStatus().name());
         response.setDefaultTags(readJson(fileImport.getDefaultTags()));
         response.setCreatedCount(fileImport.getCreatedCount() == null ? 0 : fileImport.getCreatedCount());
+        response.setTotalChunks(fileImport.getTotalChunks() == null ? 0 : fileImport.getTotalChunks());
+        response.setEmbeddedChunks(fileImport.getEmbeddedChunks() == null ? 0 : fileImport.getEmbeddedChunks());
+        response.setFailedChunks(fileImport.getFailedChunks() == null ? 0 : fileImport.getFailedChunks());
+        response.setEmbeddingModel(fileImport.getEmbeddingModel());
+        response.setEmbeddingDim(fileImport.getEmbeddingDim());
         response.setFailureReason(fileImport.getFailureReason());
         response.setCreatedAt(fileImport.getCreatedAt());
         response.setUpdatedAt(fileImport.getUpdatedAt());

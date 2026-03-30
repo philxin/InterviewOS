@@ -49,6 +49,9 @@ public class KnowledgeFileImport {
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
 
+    @Column(name = "document_id")
+    private UUID documentId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private KnowledgeFileImportStatus status;
@@ -58,6 +61,27 @@ public class KnowledgeFileImport {
 
     @Column(name = "created_count", nullable = false)
     private Integer createdCount;
+
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+
+    @Column(name = "total_chunks", nullable = false)
+    private Integer totalChunks;
+
+    @Column(name = "embedded_chunks", nullable = false)
+    private Integer embeddedChunks;
+
+    @Column(name = "failed_chunks", nullable = false)
+    private Integer failedChunks;
+
+    @Column(name = "parser_version", length = 50)
+    private String parserVersion;
+
+    @Column(name = "embedding_model", length = 100)
+    private String embeddingModel;
+
+    @Column(name = "embedding_dim")
+    private Integer embeddingDim;
 
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
@@ -82,6 +106,15 @@ public class KnowledgeFileImport {
         }
         if (createdCount == null) {
             createdCount = 0;
+        }
+        if (totalChunks == null) {
+            totalChunks = 0;
+        }
+        if (embeddedChunks == null) {
+            embeddedChunks = 0;
+        }
+        if (failedChunks == null) {
+            failedChunks = 0;
         }
         if (createdAt == null) {
             createdAt = now;
@@ -136,6 +169,14 @@ public class KnowledgeFileImport {
         this.fileSize = fileSize;
     }
 
+    public UUID getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(UUID documentId) {
+        this.documentId = documentId;
+    }
+
     public KnowledgeFileImportStatus getStatus() {
         return status;
     }
@@ -158,6 +199,62 @@ public class KnowledgeFileImport {
 
     public void setCreatedCount(Integer createdCount) {
         this.createdCount = createdCount;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public Integer getTotalChunks() {
+        return totalChunks;
+    }
+
+    public void setTotalChunks(Integer totalChunks) {
+        this.totalChunks = totalChunks;
+    }
+
+    public Integer getEmbeddedChunks() {
+        return embeddedChunks;
+    }
+
+    public void setEmbeddedChunks(Integer embeddedChunks) {
+        this.embeddedChunks = embeddedChunks;
+    }
+
+    public Integer getFailedChunks() {
+        return failedChunks;
+    }
+
+    public void setFailedChunks(Integer failedChunks) {
+        this.failedChunks = failedChunks;
+    }
+
+    public String getParserVersion() {
+        return parserVersion;
+    }
+
+    public void setParserVersion(String parserVersion) {
+        this.parserVersion = parserVersion;
+    }
+
+    public String getEmbeddingModel() {
+        return embeddingModel;
+    }
+
+    public void setEmbeddingModel(String embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    public Integer getEmbeddingDim() {
+        return embeddingDim;
+    }
+
+    public void setEmbeddingDim(Integer embeddingDim) {
+        this.embeddingDim = embeddingDim;
     }
 
     public String getFailureReason() {

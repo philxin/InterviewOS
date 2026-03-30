@@ -65,6 +65,9 @@ async function logout() {
           <router-link to="/knowledge/file-import" @click="closeMobileMenu">
             <span class="nav-icon">📄</span> 文件导入
           </router-link>
+          <router-link to="/knowledge/documents" @click="closeMobileMenu">
+            <span class="nav-icon">📚</span> 文档库
+          </router-link>
           <router-link to="/history" @click="closeMobileMenu">
             <span class="nav-icon">📊</span> 历史
           </router-link>

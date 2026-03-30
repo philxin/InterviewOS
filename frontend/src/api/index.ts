@@ -11,9 +11,12 @@ import type {
   PagedResult,
   EvaluationResult,
   Knowledge,
+  KnowledgeConcept,
+  KnowledgeDocument,
   KnowledgeFileImportResponse,
   KnowledgeFileImportStartResponse,
   LoginRequest,
+  RagSearchResponse,
   PublicRegistrationInvitation,
   RegisterRequest,
   RegistrationInvitation,
@@ -30,6 +33,7 @@ import type {
   TrainingSessionSummary,
   TrainingRecord,
   UpdateOnboardingRequest,
+  AcceptKnowledgeConceptRequest,
   UpdateKnowledgeRequest,
   UserOnboardingResponse,
 } from '../types'
@@ -84,6 +88,25 @@ export const knowledgeAPI = {
   getFileImportStatus: (importId: string) =>
     apiClient.get<KnowledgeFileImportResponse>(`/knowledge/file-imports/${importId}`),
   delete: (id: number) => apiClient.delete<void>(`/knowledge/${id}`),
+}
+
+export const knowledgeDocumentAPI = {
+  getList: () => apiClient.get<KnowledgeDocument[]>('/knowledge/documents'),
+  getById: (documentId: string) => apiClient.get<KnowledgeDocument>(`/knowledge/documents/${documentId}`),
+}
+
+export const knowledgeConceptAPI = {
+  getByDocument: (documentId: string) =>
+    apiClient.get<KnowledgeConcept[]>(`/knowledge/documents/${documentId}/concepts`),
+  accept: (conceptId: number, data?: AcceptKnowledgeConceptRequest) =>
+    apiClient.post<KnowledgeConcept>(`/knowledge/concepts/${conceptId}/accept`, data || {}),
+  reject: (conceptId: number) =>
+    apiClient.post<KnowledgeConcept>(`/knowledge/concepts/${conceptId}/reject`),
+}
+
+export const ragAPI = {
+  search: (params: { query: string; documentId?: string; topK?: number }) =>
+    apiClient.get<RagSearchResponse>('/rag/search', { params }),
 }
 
 /**

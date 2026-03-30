@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class KnowledgeFileImportParser {
     public static final long MAX_FILE_SIZE_BYTES = 5L * 1024L * 1024L;
+    public static final String PARSER_VERSION = "knowledge-file-import-parser-v1";
 
     /**
      * 解析上传文件正文。

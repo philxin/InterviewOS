@@ -1,5 +1,6 @@
 package com.philxin.interviewos.controller.dto.training;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -14,6 +15,8 @@ public class TrainingSessionStartResponse {
     private String questionType;
     private String difficulty;
     private boolean hintAvailable;
+    private String retrievalMode;
+    private List<TrainingReferenceResponse> references;
     private Sequence sequence;
 
     public UUID getSessionId() {
@@ -78,6 +81,22 @@ public class TrainingSessionStartResponse {
 
     public void setHintAvailable(boolean hintAvailable) {
         this.hintAvailable = hintAvailable;
+    }
+
+    public String getRetrievalMode() {
+        return retrievalMode;
+    }
+
+    public void setRetrievalMode(String retrievalMode) {
+        this.retrievalMode = retrievalMode;
+    }
+
+    public List<TrainingReferenceResponse> getReferences() {
+        return references;
+    }
+
+    public void setReferences(List<TrainingReferenceResponse> references) {
+        this.references = references;
     }
 
     public Sequence getSequence() {

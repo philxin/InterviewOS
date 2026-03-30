@@ -50,11 +50,32 @@
             {{ questionTypeLabelMap[question.questionType] }} ·
             {{ difficultyLabelMap[question.difficulty] }}
           </h2>
-          <span class="score-pill">得分 {{ question.feedback.score }}</span>
+          <div class="head-pills">
+            <span class="score-pill">得分 {{ question.feedback.score }}</span>
+            <span class="pill pill-dark">反馈模式 {{ question.feedback.retrievalMode }}</span>
+          </div>
         </div>
         <p class="question-title">{{ question.question }}</p>
         <p class="answer-label">你的回答</p>
         <p class="answer-content">{{ question.answer || '本次未提交回答。' }}</p>
+
+        <div class="reference-grid">
+          <TrainingReferenceList
+            title="出题依据材料"
+            :references="question.questionReferences"
+            empty-text="出题阶段未命中外部文档，使用了知识点基础内容。"
+          />
+          <TrainingReferenceList
+            title="提示依据材料"
+            :references="question.hintReferences"
+            empty-text="提示阶段未命中外部文档。"
+          />
+          <TrainingReferenceList
+            title="反馈依据材料"
+            :references="question.feedbackReferences"
+            empty-text="反馈阶段未命中外部文档。"
+          />
+        </div>
 
         <div class="feedback-grid">
           <section class="feedback-block">
@@ -125,6 +146,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppStateCard from '../components/AppStateCard.vue'
 import TrainingFeedbackBand from '../components/TrainingFeedbackBand.vue'
+import TrainingReferenceList from '../components/TrainingReferenceList.vue'
 import { trainingAPI } from '../api'
 import { useTrainingStore } from '../stores/training'
 import type { TrainingSessionDetail } from '../types'
@@ -346,6 +368,13 @@ onMounted(loadDetail)
   gap: var(--sp-3);
 }
 
+.head-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
 .question-head h2 {
   margin: 0;
   font-size: var(--fs-xl);
@@ -390,6 +419,12 @@ onMounted(loadDetail)
   padding: var(--sp-4);
   background: var(--clr-bg-secondary);
   border-radius: var(--radius-md);
+}
+
+.reference-grid {
+  margin-top: var(--sp-4);
+  display: grid;
+  gap: var(--sp-3);
 }
 
 .feedback-grid {
