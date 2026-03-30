@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +33,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeFileImportServiceTest {
@@ -98,6 +101,45 @@ class KnowledgeFileImportServiceTest {
         assertEquals(KnowledgeFileImportStatus.PENDING, saved.getStatus());
         assertEquals("[\"redis\",\"cache\"]", saved.getDefaultTags());
         verify(knowledgeFileImportProcessor).processImport(any(UUID.class), any(byte[].class), anyList());
+    }
+
+    @Test
+    void createFileImportDefersAsyncProcessingUntilAfterCommitWhenTransactionActive() {
+        when(appUserRepository.findById(1L)).thenReturn(Optional.of(buildUser(1L)));
+        when(knowledgeFileImportRepository.save(any(KnowledgeFileImport.class))).thenAnswer(invocation -> {
+            KnowledgeFileImport fileImport = invocation.getArgument(0);
+            if (fileImport.getId() == null) {
+                fileImport.setId(UUID.randomUUID());
+            }
+            if (fileImport.getStatus() == null) {
+                fileImport.setStatus(KnowledgeFileImportStatus.PENDING);
+            }
+            return fileImport;
+        });
+        doNothing().when(knowledgeFileImportProcessor).processImport(any(UUID.class), any(byte[].class), anyList());
+
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "Java Notes.md",
+            "text/markdown",
+            "# Java".getBytes(StandardCharsets.UTF_8)
+        );
+
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            knowledgeFileImportService.createFileImport(authenticatedUser(1L), file, "java");
+            verify(knowledgeFileImportProcessor, never()).processImport(any(UUID.class), any(byte[].class), anyList());
+
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1, synchronizations.size());
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(knowledgeFileImportProcessor).processImport(any(UUID.class), any(byte[].class), anyList());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

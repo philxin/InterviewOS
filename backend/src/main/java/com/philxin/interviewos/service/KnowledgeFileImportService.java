@@ -20,6 +20,8 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -73,7 +75,7 @@ public class KnowledgeFileImportService {
         fileImport.setDefaultTags(writeJson(normalizedDefaultTags));
         fileImport = knowledgeFileImportRepository.save(fileImport);
 
-        knowledgeFileImportProcessor.processImport(fileImport.getId(), content, normalizedDefaultTags);
+        scheduleImportAfterCommit(fileImport.getId(), content, normalizedDefaultTags);
         return KnowledgeFileImportStartResponse.fromEntity(fileImport);
     }
 
@@ -183,5 +185,22 @@ public class KnowledgeFileImportService {
 
     private String normalize(String value) {
         return value == null ? null : value.trim();
+    }
+
+    /**
+     * 避免在事务提交前触发异步任务，导致异步线程查不到刚创建的导入记录。
+     */
+    private void scheduleImportAfterCommit(UUID importId, byte[] content, List<String> defaultTags) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+            && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    knowledgeFileImportProcessor.processImport(importId, content, defaultTags);
+                }
+            });
+            return;
+        }
+        knowledgeFileImportProcessor.processImport(importId, content, defaultTags);
     }
 }
