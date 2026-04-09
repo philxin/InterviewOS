@@ -7,12 +7,14 @@
           <h1>知识点训练看板</h1>
           <p>把推荐训练、回练提醒和知识点维护收敛到一个首页，首屏直接进入当天最该处理的内容。</p>
         </div>
-        <div class="header-actions">
-          <button class="btn" type="button" @click="goInvitations">✉️ 邀请注册</button>
-          <button class="btn" type="button" @click="goHistory">📊 训练历史</button>
-          <button class="btn" type="button" @click="goImport">📥 批量导入</button>
-          <button class="btn" type="button" @click="goDocuments">📚 文档库</button>
-          <button class="btn btn-primary" type="button" @click="goCreate">➕ 新建知识点</button>
+        <div class="hero-actions">
+          <button class="btn btn-primary hero-primary-btn" type="button" @click="goCreate">➕ 新建知识点</button>
+          <div class="header-actions">
+            <button class="btn" type="button" @click="goInvitations">✉️ 邀请注册</button>
+            <button class="btn" type="button" @click="goHistory">📊 训练历史</button>
+            <button class="btn" type="button" @click="goImport">📥 批量导入</button>
+            <button class="btn" type="button" @click="goDocuments">📚 文档库</button>
+          </div>
         </div>
       </div>
 
@@ -42,35 +44,8 @@
     <template v-else>
       <AppInlineState v-if="errorMessage" variant="error" :text="errorMessage" />
 
-      <section class="overview-grid">
-        <article class="metric-card metric-blue">
-          <div class="metric-icon">🎯</div>
-          <div class="metric-body">
-            <span class="metric-label">近 7 天训练次数</span>
-            <strong>{{ overview.progressSummary.trainedCountLast7Days }}</strong>
-            <p>保持训练频率，先保证稳定输出。</p>
-          </div>
-        </article>
-        <article class="metric-card metric-green">
-          <div class="metric-icon">📈</div>
-          <div class="metric-body">
-            <span class="metric-label">近 7 天平均分</span>
-            <strong>{{ overview.progressSummary.averageScoreLast7Days }}</strong>
-            <p>把平均表现稳定住，再追求单次高分。</p>
-          </div>
-        </article>
-        <article class="metric-card metric-purple">
-          <div class="metric-icon">⚡</div>
-          <div class="metric-body">
-            <span class="metric-label">本周提升知识点</span>
-            <strong>{{ overview.progressSummary.improvedKnowledgeCount }}</strong>
-            <p>近 7 天掌握度出现正向变化的主题数。</p>
-          </div>
-        </article>
-      </section>
-
       <section class="workspace-grid">
-        <div class="workspace-main">
+        <div class="priority-grid">
           <section class="section-card recommend-section">
             <div class="section-head">
               <div>
@@ -118,9 +93,7 @@
               </article>
             </div>
           </section>
-        </div>
 
-        <aside class="workspace-side">
           <section class="section-card review-section">
             <div class="section-head">
               <div>
@@ -173,72 +146,99 @@
               </article>
             </div>
           </section>
+        </div>
 
-          <section class="summary-stack">
-            <article class="section-card">
-              <div class="section-head">
-                <div>
-                  <h2>当前薄弱项</h2>
-                  <span class="section-tip">优先复练掌握度最低的知识点，缩短“会一点但说不清”的区间。</span>
+        <section class="summary-stack">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <h2>当前薄弱项</h2>
+                <span class="section-tip">优先复练掌握度最低的知识点，缩短“会一点但说不清”的区间。</span>
+              </div>
+            </div>
+            <AppInlineState
+              v-if="overview.weakKnowledgeItems.length === 0"
+              variant="empty"
+              text="暂无知识点数据，先创建 1-2 个训练主题。"
+            />
+            <div v-else class="weak-list">
+              <button
+                v-for="item in overview.weakKnowledgeItems"
+                :key="item.knowledgeId"
+                class="weak-item"
+                type="button"
+                @click="goTraining(item.knowledgeId)"
+              >
+                <div class="weak-main">
+                  <strong>{{ item.title }}</strong>
+                  <MasteryBadge :mastery="item.mastery" />
                 </div>
-              </div>
-              <AppInlineState
-                v-if="overview.weakKnowledgeItems.length === 0"
-                variant="empty"
-                text="暂无知识点数据，先创建 1-2 个训练主题。"
-              />
-              <div v-else class="weak-list">
-                <button
-                  v-for="item in overview.weakKnowledgeItems"
-                  :key="item.knowledgeId"
-                  class="weak-item"
-                  type="button"
-                  @click="goTraining(item.knowledgeId)"
-                >
-                  <div class="weak-main">
-                    <strong>{{ item.title }}</strong>
-                    <MasteryBadge :mastery="item.mastery" />
-                  </div>
-                  <div v-if="item.tags.length > 0" class="tag-list compact">
-                    <span v-for="tag in item.tags" :key="`${item.knowledgeId}-${tag}`" class="tag-chip">#{{ tag }}</span>
-                  </div>
-                </button>
-              </div>
-            </article>
+                <div v-if="item.tags.length > 0" class="tag-list compact">
+                  <span v-for="tag in item.tags" :key="`${item.knowledgeId}-${tag}`" class="tag-chip">#{{ tag }}</span>
+                </div>
+              </button>
+            </div>
+          </article>
 
-            <article class="section-card">
-              <div class="section-head">
-                <div>
-                  <h2>最近训练</h2>
-                  <span class="section-tip">快速回看上一轮结果，判断是否需要接着补练。</span>
-                </div>
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <h2>最近训练</h2>
+                <span class="section-tip">快速回看上一轮结果，判断是否需要接着补练。</span>
               </div>
-              <AppInlineState
-                v-if="overview.recentTrainings.length === 0"
-                variant="empty"
-                text="还没有训练记录，先从知识点列表发起一次训练。"
-              />
-              <div v-else class="recent-list">
-                <button
-                  v-for="item in overview.recentTrainings"
-                  :key="item.sessionId"
-                  class="recent-item"
-                  type="button"
-                  @click="goResult(item.sessionId)"
-                >
-                  <div class="recent-top">
-                    <strong>{{ item.knowledgeTitle }}</strong>
-                    <div class="recent-badges">
-                      <span v-if="item.band" class="pill pill-blue">{{ item.band.label }}</span>
-                      <span class="pill pill-dark">{{ item.sessionScore }}</span>
-                    </div>
+            </div>
+            <AppInlineState
+              v-if="overview.recentTrainings.length === 0"
+              variant="empty"
+              text="还没有训练记录，先从知识点列表发起一次训练。"
+            />
+            <div v-else class="recent-list">
+              <button
+                v-for="item in overview.recentTrainings"
+                :key="item.sessionId"
+                class="recent-item"
+                type="button"
+                @click="goResult(item.sessionId)"
+              >
+                <div class="recent-top">
+                  <strong>{{ item.knowledgeTitle }}</strong>
+                  <div class="recent-badges">
+                    <span v-if="item.band" class="pill pill-blue">{{ item.band.label }}</span>
+                    <span class="pill pill-dark">{{ item.sessionScore }}</span>
                   </div>
-                  <p class="meta-text">完成于 {{ formatDateTime(item.completedAt) }}</p>
-                </button>
-              </div>
-            </article>
-          </section>
-        </aside>
+                </div>
+                <p class="meta-text">完成于 {{ formatDateTime(item.completedAt) }}</p>
+              </button>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section class="overview-grid">
+        <article class="metric-card metric-blue">
+          <div class="metric-icon">🎯</div>
+          <div class="metric-body">
+            <span class="metric-label">近 7 天训练次数</span>
+            <strong>{{ overview.progressSummary.trainedCountLast7Days }}</strong>
+            <p>保持训练频率，先保证稳定输出。</p>
+          </div>
+        </article>
+        <article class="metric-card metric-green">
+          <div class="metric-icon">📈</div>
+          <div class="metric-body">
+            <span class="metric-label">近 7 天平均分</span>
+            <strong>{{ overview.progressSummary.averageScoreLast7Days }}</strong>
+            <p>把平均表现稳定住，再追求单次高分。</p>
+          </div>
+        </article>
+        <article class="metric-card metric-purple">
+          <div class="metric-icon">⚡</div>
+          <div class="metric-body">
+            <span class="metric-label">本周提升知识点</span>
+            <strong>{{ overview.progressSummary.improvedKnowledgeCount }}</strong>
+            <p>近 7 天掌握度出现正向变化的主题数。</p>
+          </div>
+        </article>
       </section>
 
       <AppStateCard
@@ -247,14 +247,17 @@
         message="暂无知识点，请先新建。"
       />
 
-      <section v-else class="section-card knowledge-section">
-        <div class="section-head knowledge-head">
-          <div>
-            <h2>全部知识点</h2>
+      <details v-else class="section-card knowledge-section">
+        <summary class="knowledge-toggle">
+          <span class="knowledge-toggle-copy">
+            <span class="knowledge-toggle-title">全部知识点</span>
             <span class="section-tip">当前库中的知识点清单，可直接开始训练、编辑或归档。</span>
-          </div>
-          <span class="panel-stat">{{ totalKnowledgeCount }} 个主题</span>
-        </div>
+          </span>
+          <span class="knowledge-toggle-side">
+            <span class="panel-stat">{{ totalKnowledgeCount }} 个主题</span>
+            <span class="knowledge-toggle-icon" aria-hidden="true">⌄</span>
+          </span>
+        </summary>
         <div class="knowledge-list">
           <article v-for="item in knowledgeList" :key="item.id" class="knowledge-card">
             <header class="knowledge-header">
@@ -281,7 +284,7 @@
             </footer>
           </article>
         </div>
-      </section>
+      </details>
     </template>
   </section>
 </template>
@@ -569,7 +572,7 @@ onMounted(fetchDashboard)
 .hero-copy {
   display: grid;
   align-content: start;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
 }
 
 .hero-kicker {
@@ -601,6 +604,18 @@ onMounted(fetchDashboard)
   margin: var(--sp-3) 0 0;
   color: var(--clr-text-secondary);
   font-size: var(--fs-base);
+}
+
+.hero-actions {
+  display: grid;
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+.hero-primary-btn {
+  min-height: 44px;
+  padding-inline: var(--sp-5);
+  justify-self: start;
 }
 
 .header-actions {
@@ -675,9 +690,9 @@ onMounted(fetchDashboard)
 
 .metric-card {
   border-radius: var(--radius-lg);
-  padding: var(--sp-5);
+  padding: var(--sp-4);
   display: flex;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   align-items: flex-start;
   border: 1px solid var(--clr-border);
   transition: transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
@@ -734,7 +749,7 @@ onMounted(fetchDashboard)
 .metric-card strong {
   display: block;
   margin-top: var(--sp-2);
-  font-size: var(--fs-4xl);
+  font-size: var(--fs-3xl);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -749,16 +764,24 @@ onMounted(fetchDashboard)
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  gap: var(--sp-4);
+}
+
+.priority-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
   gap: var(--sp-4);
   align-items: start;
 }
 
-.workspace-main,
-.workspace-side,
 .summary-stack {
   display: grid;
   gap: var(--sp-4);
+}
+
+.summary-stack {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .section-card {
@@ -767,6 +790,7 @@ onMounted(fetchDashboard)
   border-radius: var(--radius-lg);
   padding: var(--sp-5);
   box-shadow: var(--shadow-sm);
+  height: 100%;
 }
 
 .recommend-section {
@@ -820,6 +844,10 @@ onMounted(fetchDashboard)
   margin-top: var(--sp-4);
 }
 
+.knowledge-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .list-item,
 .weak-item,
 .recent-item {
@@ -848,13 +876,14 @@ onMounted(fetchDashboard)
 }
 
 .review-item {
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .review-item .btn {
-  align-self: flex-end;
-  margin-top: var(--sp-2);
+  align-self: start;
+  margin-top: 0;
 }
 
 .item-main {
@@ -943,10 +972,66 @@ onMounted(fetchDashboard)
 .knowledge-section {
   display: grid;
   gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5);
 }
 
-.knowledge-head {
-  margin-bottom: var(--sp-1);
+.knowledge-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  list-style: none;
+  cursor: pointer;
+}
+
+.knowledge-toggle::marker {
+  content: '';
+}
+
+.knowledge-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.knowledge-toggle-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.knowledge-toggle-title {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--clr-text);
+}
+
+.knowledge-toggle-side {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.knowledge-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--clr-bg-secondary);
+  color: var(--clr-text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.knowledge-section[open] {
+  border-color: rgba(99, 102, 241, 0.16);
+  box-shadow: var(--shadow-md);
+}
+
+.knowledge-section[open] .knowledge-toggle-icon {
+  transform: rotate(180deg);
+  background: var(--clr-primary-50);
 }
 
 .knowledge-card {
@@ -1020,7 +1105,9 @@ onMounted(fetchDashboard)
 
 @media (max-width: 1100px) {
   .hero-panel,
-  .workspace-grid {
+  .priority-grid,
+  .summary-stack,
+  .knowledge-list {
     grid-template-columns: 1fr;
   }
 }
@@ -1044,6 +1131,11 @@ onMounted(fetchDashboard)
     width: 100%;
   }
 
+  .hero-actions,
+  .hero-primary-btn {
+    width: 100%;
+  }
+
   .header-actions .btn {
     flex: 1 1 180px;
   }
@@ -1061,13 +1153,22 @@ onMounted(fetchDashboard)
   .weak-main,
   .recent-top,
   .list-item,
+  .review-item,
   .section-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
+  .review-item {
+    display: flex;
+  }
+
   .panel-stat {
     white-space: normal;
+  }
+
+  .knowledge-toggle {
+    align-items: flex-start;
   }
 
   .review-item .btn {
@@ -1085,11 +1186,16 @@ onMounted(fetchDashboard)
     padding: var(--sp-4);
   }
 
+  .knowledge-section {
+    padding: var(--sp-4);
+  }
+
   .spotlight-stats {
     grid-template-columns: 1fr;
   }
 
   .knowledge-header,
+  .knowledge-toggle-side,
   .card-actions {
     flex-direction: column;
     align-items: flex-start;

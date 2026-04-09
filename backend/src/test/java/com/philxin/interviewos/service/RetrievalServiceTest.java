@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.philxin.interviewos.common.BusinessException;
@@ -31,10 +32,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -139,6 +142,112 @@ class RetrievalServiceTest {
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
         verify(retrievalTraceRepository, never()).save(any(RetrievalTrace.class));
+    }
+
+    @Test
+    void searchShouldUsePgvectorPathWithoutPreloadingCandidates() {
+        MultiDatabaseProperties properties = new MultiDatabaseProperties();
+        properties.setPrimary(MultiDatabaseProperties.DatabaseType.POSTGRESQL);
+        RagProperties ragProperties = new RagProperties();
+        ragProperties.setSearchTopK(5);
+        ragProperties.setMinSimilarityScore(0.25d);
+
+        retrievalService = new RetrievalService(
+            embeddingService,
+            knowledgeChunkRepository,
+            knowledgeDocumentRepository,
+            retrievalTraceRepository,
+            postgresqlJdbcTemplate,
+            properties,
+            ragProperties,
+            new ObjectMapper()
+        );
+
+        when(embeddingService.embed(anyString())).thenReturn(new float[] {1f, 0f});
+        when(postgresqlJdbcTemplate.execute(any(ConnectionCallback.class))).thenReturn(true);
+
+        KnowledgeChunk chunk = buildChunk(999L, "[1,0]", "pgvector-doc");
+        RetrievalService.RetrievalMatch pgvectorMatch = new RetrievalService.RetrievalMatch(chunk, 0.92d);
+        org.mockito.Mockito.doReturn(List.of(pgvectorMatch))
+            .when(postgresqlJdbcTemplate)
+            .query(
+                anyString(),
+                ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<RetrievalService.RetrievalMatch>>any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            );
+        when(retrievalTraceRepository.save(any(RetrievalTrace.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RetrievalService.RetrievalResult result = retrievalService.search(authenticatedUser(1L), "redis", null, 5);
+
+        assertEquals(1, result.matches().size());
+        assertEquals(999L, result.matches().get(0).chunk().getId());
+        verify(knowledgeChunkRepository, never()).findByUserIdAndStatusOrderByUpdatedAtDesc(any(), any());
+        verify(knowledgeChunkRepository, never()).findByUserIdAndDocumentIdAndStatusOrderByChunkIndexAsc(any(), any(), any());
+        verify(postgresqlJdbcTemplate, times(1)).query(
+            anyString(),
+            ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<RetrievalService.RetrievalMatch>>any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any()
+        );
+    }
+
+    @Test
+    void searchShouldFallbackToInMemoryWhenPgvectorQueryFails() {
+        MultiDatabaseProperties properties = new MultiDatabaseProperties();
+        properties.setPrimary(MultiDatabaseProperties.DatabaseType.POSTGRESQL);
+        RagProperties ragProperties = new RagProperties();
+        ragProperties.setSearchTopK(5);
+        ragProperties.setMinSimilarityScore(0.25d);
+
+        retrievalService = new RetrievalService(
+            embeddingService,
+            knowledgeChunkRepository,
+            knowledgeDocumentRepository,
+            retrievalTraceRepository,
+            postgresqlJdbcTemplate,
+            properties,
+            ragProperties,
+            new ObjectMapper()
+        );
+
+        when(embeddingService.embed(anyString())).thenReturn(new float[] {1f, 0f});
+        when(postgresqlJdbcTemplate.execute(any(ConnectionCallback.class))).thenReturn(true);
+        org.mockito.Mockito.doThrow(new RuntimeException("pgvector failed"))
+            .when(postgresqlJdbcTemplate)
+            .query(
+                anyString(),
+                ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<RetrievalService.RetrievalMatch>>any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            );
+        when(knowledgeChunkRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(1L, KnowledgeChunkStatus.READY))
+            .thenReturn(List.of(buildChunk(123L, "[1,0]", "fallback-doc")));
+        when(retrievalTraceRepository.save(any(RetrievalTrace.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RetrievalService.RetrievalResult result = retrievalService.search(authenticatedUser(1L), "redis", null, 5);
+
+        assertEquals(1, result.matches().size());
+        assertEquals(123L, result.matches().get(0).chunk().getId());
+        verify(knowledgeChunkRepository, times(1)).findByUserIdAndStatusOrderByUpdatedAtDesc(1L, KnowledgeChunkStatus.READY);
     }
 
     private AuthenticatedUser authenticatedUser(Long id) {

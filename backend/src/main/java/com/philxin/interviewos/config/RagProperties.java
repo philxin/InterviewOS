@@ -7,8 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "app.rag")
 public class RagProperties {
-    private String embeddingModel = "text-embedding-3-large";
-    private Integer embeddingDimensions = 3072;
+    private String embeddingModel = "text-embedding-3-small";
+    private Integer embeddingDimensions = 1536;
     private Integer chunkSize = 1200;
     private Integer chunkOverlap = 200;
     private Integer minChunkLength = 80;

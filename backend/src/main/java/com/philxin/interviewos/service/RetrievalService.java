@@ -81,15 +81,7 @@ public class RetrievalService {
             knowledgeDocumentRepository.findByIdAndUserId(documentId, userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Knowledge document not found"));
         }
-        List<KnowledgeChunk> candidates = documentId == null
-            ? knowledgeChunkRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, KnowledgeChunkStatus.READY)
-            : knowledgeChunkRepository.findByUserIdAndDocumentIdAndStatusOrderByChunkIndexAsc(userId, documentId, KnowledgeChunkStatus.READY);
         RetrievalResult result;
-        if (candidates.isEmpty()) {
-            result = new RetrievalResult(normalizedQuery, documentId, topK, true, List.of());
-            persistTrace(userId, documentId, result);
-            return result;
-        }
         if (canUsePgvectorSearch()) {
             try {
                 result = searchWithPgvector(normalizedQuery, documentId, topK, userId);
@@ -98,6 +90,15 @@ public class RetrievalService {
             } catch (RuntimeException exception) {
                 log.warn("Falling back to in-memory retrieval after pgvector query failure", exception);
             }
+        }
+
+        List<KnowledgeChunk> candidates = documentId == null
+            ? knowledgeChunkRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, KnowledgeChunkStatus.READY)
+            : knowledgeChunkRepository.findByUserIdAndDocumentIdAndStatusOrderByChunkIndexAsc(userId, documentId, KnowledgeChunkStatus.READY);
+        if (candidates.isEmpty()) {
+            result = new RetrievalResult(normalizedQuery, documentId, topK, true, List.of());
+            persistTrace(userId, documentId, result);
+            return result;
         }
         result = searchInMemory(normalizedQuery, documentId, topK, candidates, userId);
         persistTrace(userId, documentId, result);
@@ -144,9 +145,13 @@ public class RetrievalService {
     private RetrievalResult searchWithPgvector(String normalizedQuery, UUID documentId, int topK, Long userId) {
         float[] queryEmbedding = embeddingService.embed(normalizedQuery);
         String vectorLiteral = writeEmbedding(queryEmbedding);
+        int queryEmbeddingDimension = queryEmbedding.length;
         double minScore = ragProperties.getMinSimilarityScore() == null ? 0.25d : ragProperties.getMinSimilarityScore();
         List<RetrievalMatch> matches = postgresqlJdbcTemplate.query(
             """
+                WITH query_vec AS (
+                    SELECT CAST(? AS vector) AS embedding
+                )
                 SELECT
                     kc.id,
                     kc.document_id,
@@ -156,15 +161,20 @@ public class RetrievalService {
                     kc.page_to,
                     kc.start_offset,
                     kc.end_offset,
-                    1 - (CAST(kc.embedding AS vector) <=> CAST(? AS vector)) AS score
+                    1 - (CAST(kc.embedding AS vector) <=> qv.embedding) AS score
                 FROM knowledge_chunk kc
                 JOIN knowledge_document kd ON kd.id = kc.document_id
+                CROSS JOIN query_vec qv
                 WHERE kc.user_id = ?
                   AND kc.status = 'READY'
                   AND kc.embedding IS NOT NULL
+                  AND (
+                        kc.embedding_dim = ?
+                        OR (kc.embedding_dim IS NULL AND vector_dims(CAST(kc.embedding AS vector)) = ?)
+                  )
                   AND (? IS NULL OR kc.document_id = ?)
-                  AND (1 - (CAST(kc.embedding AS vector) <=> CAST(? AS vector))) >= ?
-                ORDER BY CAST(kc.embedding AS vector) <=> CAST(? AS vector)
+                  AND (1 - (CAST(kc.embedding AS vector) <=> qv.embedding)) >= ?
+                ORDER BY CAST(kc.embedding AS vector) <=> qv.embedding
                 LIMIT ?
                 """,
             (rs, rowNum) -> {
@@ -184,11 +194,11 @@ public class RetrievalService {
             },
             vectorLiteral,
             userId,
+            queryEmbeddingDimension,
+            queryEmbeddingDimension,
             documentId,
             documentId,
-            vectorLiteral,
             minScore,
-            vectorLiteral,
             topK
         );
         boolean degraded = matches.isEmpty();

@@ -26,19 +26,24 @@ spring:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
         options:
-          model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+          model: ${OPENAI_CHAT_MODEL:gpt-5.4}
           temperature: ${OPENAI_CHAT_TEMPERATURE:0.7}
       embedding:
         enabled: ${OPENAI_EMBEDDING_ENABLED:true}
         options:
-          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
-          dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:3072}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1536}
 
 # =============================
 # 双数据库并存配置（统一维护）
 # 运行时通过 profile 选择生效的数据源
 # =============================
 app:
+  ai:
+    embedding:
+      base-url: ${OPENAI_EMBEDDING_BASE_URL:${OPENAI_BASE_URL:https://api.openai.com}}
+      api-key: ${OPENAI_EMBEDDING_API_KEY:${OPENAI_API_KEY:}}
+      endpoint: ${OPENAI_EMBEDDING_ENDPOINT:/v1/embeddings}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
     allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
@@ -76,8 +81,8 @@ app:
       driver-class-name: org.postgresql.Driver
       dialect: org.hibernate.dialect.PostgreSQLDialect
   rag:
-    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
-    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:3072}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1536}
     chunk-size: ${APP_RAG_CHUNK_SIZE:1200}
     chunk-overlap: ${APP_RAG_CHUNK_OVERLAP:200}
     min-chunk-length: ${APP_RAG_MIN_CHUNK_LENGTH:80}
